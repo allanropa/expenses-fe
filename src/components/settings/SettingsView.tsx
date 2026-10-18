@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { api } from "../../api";
 import type { Session } from "../../types";
 import { money } from "../../utils/formatters";
+import { getInitialTheme, applyTheme, type Theme } from "../../theme";
 
 interface SettingsViewProps {
   csrf: string;
@@ -12,6 +13,7 @@ export function SettingsView({ csrf, user }: SettingsViewProps) {
   const [name, setName] = useState(user.display_name);
   const [currency, setCurrency] = useState("COP");
   const [timezone, setTimezone] = useState("America/Bogota");
+  const [theme, setTheme] = useState<Theme>(getInitialTheme());
 
   // Fixed: Proper loading of initial settings
   useEffect(() => {
@@ -82,6 +84,21 @@ export function SettingsView({ csrf, user }: SettingsViewProps) {
               setTimezone(event.target.value)
             }
           />
+        </label>
+
+        <label>
+          Tema
+          <select
+            value={theme}
+            onChange={(event) => {
+              const value = event.target.value as Theme;
+              setTheme(value);
+              applyTheme(value);
+            }}
+          >
+            <option value="light">Claro</option>
+            <option value="dark">Oscuro</option>
+          </select>
         </label>
 
         <button>Guardar cambios</button>

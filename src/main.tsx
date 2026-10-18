@@ -10,6 +10,8 @@ import { SettingsView } from "./components/settings/SettingsView";
 import { CardsView } from "./components/cards/CardsView";
 import { LoansView } from "./components/loans/LoansView";
 import { BudgetsView } from "./components/budgets/BudgetsView";
+import { getInitialTheme, applyTheme } from "./theme";
+import "./theme.css";
 import "./styles.css";
 
 type View = "dashboard" | "transactions" | "accounts" | "cards" | "loans" | "budgets" | "settings";
@@ -93,6 +95,8 @@ function App() {
     </div>
   );
 }
+
+applyTheme(getInitialTheme());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
