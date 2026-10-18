@@ -350,6 +350,7 @@ export function TransactionsView({ csrf }: { csrf: string }) {
                 <div>
                   <strong>
                     {item.description || item.transaction_type}
+                    {item.transaction_type === "payment" && <span className="chip">Pago</span>}
                   </strong>
                   <small>
                     {item.transaction_date} · {item.currency}
@@ -357,18 +358,23 @@ export function TransactionsView({ csrf }: { csrf: string }) {
                 </div>
                 <b
                   className={
-                    item.transaction_type === "expense"
-                      ? "negative"
-                      : "positive"
+                    item.transaction_type === "income"
+                      ? "positive"
+                      : "negative"
                   }
                 >
-                  {item.transaction_type === "expense" ? "-" : "+"}
+                  {item.transaction_type === "income" ? "+" : "-"}
                   {money(item.amount, item.currency)}
+                  {item.original_amount != null && item.original_currency && (
+                    <small> ≈ {money(item.original_amount, item.original_currency)}</small>
+                  )}
                 </b>
-                <ActionMenu
-                  onDetails={() => {}}
-                  onDelete={() => remove(item.id)}
-                />
+                {item.transaction_type !== "payment" && (
+                  <ActionMenu
+                    onDetails={() => {}}
+                    onDelete={() => remove(item.id)}
+                  />
+                )}
               </div>
             ))
           )}

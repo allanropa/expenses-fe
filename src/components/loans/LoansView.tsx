@@ -6,6 +6,81 @@ import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
 
+type PaymentLine = { kind: "capital" | "interes" | "gasto"; amount: string; category_id: string; description: string };
+
+function LoanPaymentPanel({ csrf, loanId, onDone }: { csrf: string; loanId: number; onDone: () => void }) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loan, setLoan] = useState<Loan | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [source, setSource] = useState("");
+  const [payDate, setPayDate] = useState(toISODateString());
+  const [lines, setLines] = useState<PaymentLine[]>([{ kind: "capital", amount: "", category_id: "", description: "" }]);
+  useEffect(() => {
+    api<Loan>(`/api/loans/${loanId}`).then(v => {
+      setLoan(v);
+      const pending = v.installments.find(i => i.status !== "paid");
+      if (pending) {
+        setLines([
+          { kind: "capital", amount: pending.principal_amount, category_id: "", description: "" },
+          { kind: "interes", amount: pending.interest_amount, category_id: "", description: "Interés" },
+        ]);
+      }
+    }).catch(() => undefined);
+    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
+    api<Category[]>("/api/categories").then(setCategories).catch(() => undefined);
+  }, [loanId]);
+  function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
+  function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
+  function removeLine(i: number) { setLines(lines.filter((_, idx) => idx !== i)); }
+  const capitalTotal = lines.filter(l => l.kind === "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const interestTotal = lines.filter(l => l.kind === "interes").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const expenseCategories = categories.filter(c => c.kind !== "income");
+  const matching = accounts.filter(a => loan && a.currency === loan.currency);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!source || (capitalTotal + interestTotal) <= 0) return;
+    const extras = lines.filter(l => l.kind === "gasto" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || "Cargo adicional" }));
+    await api(`/api/loans/${loanId}/payments`, {
+      method: "POST", csrf,
+      body: JSON.stringify({
+        source_account_id: Number(source),
+        payment_date: payDate,
+        scheduled_amount: String(capitalTotal + interestTotal),
+        interest_paid: interestTotal > 0 ? String(interestTotal) : undefined,
+        extra_charges: extras.length > 0 ? extras : undefined,
+      }),
+    });
+    onDone();
+  }
+  if (!loan) return <p className="muted">Cargando...</p>;
+  return (
+    <div className="stack">
+      <p className="muted">Pagando: <strong>{loan.name}</strong> · Pendiente: {money(loan.outstanding_principal, loan.currency)}</p>
+      <form className="stack" onSubmit={submit}>
+        <label>Cuenta origen<select required value={source} onChange={e => setSource(e.target.value)}><option value="">Seleccionar</option>{matching.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+        <label>Fecha<input required type="date" value={payDate} onChange={e => setPayDate(e.target.value)} /></label>
+        <h4>Líneas de pago</h4>
+        {lines.map((line, i) => (
+          <div className="row" key={i} style={{ flexWrap: "wrap", gap: 4 }}>
+            <select value={line.kind} onChange={e => updateLine(i, "kind", e.target.value)} style={{ width: 88 }}>
+              <option value="capital">Abono</option>
+              <option value="interes">Interés</option>
+              <option value="gasto">Gasto</option>
+            </select>
+            <input required type="number" min="0" step="0.01" placeholder="Monto" value={line.amount} onChange={e => updateLine(i, "amount", e.target.value)} style={{ width: 100 }} />
+            {line.kind === "gasto" && <select value={line.category_id} onChange={e => updateLine(i, "category_id", e.target.value)} style={{ width: 130 }}>{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+            {line.kind === "gasto" && <input placeholder="Descripción" value={line.description} onChange={e => updateLine(i, "description", e.target.value)} style={{ flex: 1 }} />}
+            <button type="button" onClick={() => removeLine(i)} style={{ width: 28 }}>×</button>
+          </div>
+        ))}
+        <button type="button" onClick={addLine}>+ Agregar línea</button>
+        {(capitalTotal + interestTotal) > 0 && <p><strong>Total cuota: {money(capitalTotal + interestTotal, loan.currency)}</strong> (abono {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)})</p>}
+        <button disabled={!source || (capitalTotal + interestTotal) <= 0}>Registrar pago</button>
+      </form>
+    </div>
+  );
+}
+
 function LoanConfigurationPanel({ csrf, loanId, onArchived }: { csrf: string; loanId: number; onArchived: () => void }) {
   const [loan, setLoan] = useState<Loan | null>(null);
   const [name, setName] = useState("");
@@ -111,8 +186,10 @@ export function LoansView({ csrf }: { csrf: string }) {
   const addModal = useModal();
   const detailModal = useModal();
   const configModal = useModal();
+  const payModal = useModal();
   const [detailId, setDetailId] = useState<number | null>(null);
   const [configId, setConfigId] = useState<number | null>(null);
+  const [payId, setPayId] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: "", principal_amount: "", currency: "COP", annual_effective_rate: "",
     term_months: "12", start_date: toISODateString(), first_payment_date: toISODateString(),
@@ -157,6 +234,7 @@ export function LoansView({ csrf }: { csrf: string }) {
               <ActionMenu
                 onDetails={() => { setDetailId(loan.id); detailModal.open_modal(); }}
                 onConfigure={() => { setConfigId(loan.id); configModal.open_modal(); }}
+                onPay={() => { setPayId(loan.id); payModal.open_modal(); }}
               />
             </div>
           ))
@@ -181,6 +259,9 @@ export function LoansView({ csrf }: { csrf: string }) {
       </Modal>
       <Modal open={configModal.open} title="Configurar préstamo" onClose={() => configModal.close_modal()}>
         {configId !== null && <LoanConfigurationPanel csrf={csrf} loanId={configId} onArchived={() => { configModal.close_modal(); load(); }} />}
+      </Modal>
+      <Modal open={payModal.open} title="Pagar préstamo" onClose={() => payModal.close_modal()}>
+        {payId !== null && <LoanPaymentPanel csrf={csrf} loanId={payId} onDone={() => { payModal.close_modal(); load(); }} />}
       </Modal>
     </>
   );

@@ -52,12 +52,14 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
 interface ActionMenuProps {
   onDetails: () => void;
   onConfigure?: () => void;
+  onPay?: () => void;
   onDelete?: () => void;
 }
 
 export function ActionMenu({
   onDetails,
   onConfigure,
+  onPay,
   onDelete,
 }: ActionMenuProps) {
   return (
@@ -66,6 +68,7 @@ export function ActionMenu({
       <div className="item-menu-panel">
         <button onClick={onDetails}>Ver detalles</button>
         {onConfigure && <button onClick={onConfigure}>Configurar</button>}
+        {onPay && <button onClick={onPay}>Pagar</button>}
         {onDelete && <button onClick={onDelete}>Anular</button>}
       </div>
     </details>

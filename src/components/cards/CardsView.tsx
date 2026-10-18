@@ -6,6 +6,88 @@ import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
 
+type PaymentLine = { kind: "capital" | "interes" | "gasto"; amount: string; category_id: string; description: string };
+
+function CardPaymentPanel({ csrf, cardId, onDone }: { csrf: string; cardId: number; onDone: () => void }) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [card, setCard] = useState<Card | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [lines, setLines] = useState<PaymentLine[]>([{ kind: "capital", amount: "", category_id: "", description: "" }]);
+  const [source, setSource] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [rate, setRate] = useState("");
+  const [payDate, setPayDate] = useState(toISODateString());
+  useEffect(() => {
+    api<Card>(`/api/cards/${cardId}`).then(v => { setCard(v); if (v.currencies[0]) setCurrency(v.currencies[0].currency); }).catch(() => undefined);
+    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
+    api<Category[]>("/api/categories").then(setCategories).catch(() => undefined);
+  }, [cardId]);
+  function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
+  function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
+  function removeLine(i: number) { setLines(lines.filter((_, idx) => idx !== i)); }
+  const capitalTotal = lines.filter(l => l.kind === "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const extraTotal = lines.filter(l => l.kind !== "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const expenseCategories = categories.filter(c => c.kind !== "income");
+  const selectedAccount = accounts.find(a => a.id === Number(source));
+  const isMultiCurrency = Boolean(selectedAccount && selectedAccount.currency !== currency);
+  const sourceDecimals = selectedAccount?.currency === "COP" ? 0 : 2;
+  const sourceAmount = isMultiCurrency && rate ? String((capitalTotal * Number(rate)).toFixed(sourceDecimals)) : "";
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!source || capitalTotal <= 0) return;
+    const extras = lines.filter(l => l.kind !== "capital" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || (l.kind === "interes" ? "Interés" : "Cargo adicional") }));
+    await api(`/api/cards/${cardId}/payments`, {
+      method: "POST", csrf,
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        card_id: cardId,
+        source_account_id: Number(source),
+        obligation_amount: String(capitalTotal),
+        obligation_currency: currency,
+        source_amount: isMultiCurrency ? sourceAmount : undefined,
+        exchange_rate: isMultiCurrency ? rate : undefined,
+        payment_date: payDate,
+        extra_charges: extras.length > 0 ? extras : undefined,
+      }),
+    });
+    onDone();
+  }
+  if (!card) return <p className="muted">Cargando...</p>;
+  return (
+    <div className="stack">
+      <p className="muted">Pagando: <strong>{card.name}</strong> · Deuda {currency}: {money(card.currencies.find(c => c.currency === currency)?.outstanding_debt ?? "0", currency)}</p>
+      <form className="stack" onSubmit={submit}>
+        <label>Moneda<select value={currency} onChange={e => setCurrency(e.target.value)}>{card.currencies.map(c => <option key={c.currency}>{c.currency}</option>)}</select></label>
+        <label>Cuenta origen<select required value={source} onChange={e => { setSource(e.target.value); setRate(""); }}><option value="">Seleccionar</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>)}</select></label>
+        {isMultiCurrency && (
+          <label>Tasa de cambio ({currency} a {selectedAccount!.currency})<input required type="number" min="0" step="0.0001" placeholder="4000" value={rate} onChange={e => setRate(e.target.value)} /></label>
+        )}
+        <label>Fecha<input required type="date" value={payDate} onChange={e => setPayDate(e.target.value)} /></label>
+        <h4>Líneas de pago</h4>
+        {lines.map((line, i) => (
+          <div className="row" key={i} style={{ flexWrap: "wrap", gap: 4 }}>
+            <select value={line.kind} onChange={e => updateLine(i, "kind", e.target.value)} style={{ width: 88 }}>
+              <option value="capital">Abono</option>
+              <option value="interes">Interés</option>
+              <option value="gasto">Gasto</option>
+            </select>
+            <input required type="number" min="0" step="0.01" placeholder="Monto" value={line.amount} onChange={e => updateLine(i, "amount", e.target.value)} style={{ width: 100 }} />
+            {line.kind !== "capital" && <select value={line.category_id} onChange={e => updateLine(i, "category_id", e.target.value)} style={{ width: 130 }}>{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+            {line.kind !== "capital" && <input placeholder="Descripción" value={line.description} onChange={e => updateLine(i, "description", e.target.value)} style={{ flex: 1 }} />}
+            <button type="button" onClick={() => removeLine(i)} style={{ width: 28 }}>×</button>
+          </div>
+        ))}
+        <button type="button" onClick={addLine}>+ Agregar línea</button>
+        {capitalTotal > 0 && <p><strong>Total abono: {money(capitalTotal, currency)}</strong></p>}
+        {extraTotal > 0 && <p><strong>Cargos adicionales: {money(extraTotal, currency)}</strong></p>}
+        {isMultiCurrency && rate && <p><strong>Total a descontar ({selectedAccount!.currency}): {money((capitalTotal + extraTotal) * Number(rate), selectedAccount!.currency)}</strong></p>}
+        {!isMultiCurrency && (capitalTotal > 0 || extraTotal > 0) && <p><strong>Total a pagar: {money(capitalTotal + extraTotal, currency)}</strong></p>}
+        <button disabled={!source || capitalTotal <= 0 || (isMultiCurrency && !rate)}>Registrar pago</button>
+      </form>
+    </div>
+  );
+}
+
 function CardDetailsContent({ cardId }: { cardId: number }) {
   const [card, setCard] = useState<Card | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -96,8 +178,10 @@ export function CardsView({ csrf }: { csrf: string }) {
   const addModal = useModal();
   const detailModal = useModal();
   const configModal = useModal();
+  const payModal = useModal();
   const [detailId, setDetailId] = useState<number | null>(null);
   const [configId, setConfigId] = useState<number | null>(null);
+  const [payId, setPayId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", issuing_bank: "", description: "", statement_closing_day: "15", currency: "COP", credit_limit: "" });
 
   const load = () => api<Card[]>("/api/cards").then(setCards).catch(() => undefined);
@@ -145,6 +229,7 @@ export function CardsView({ csrf }: { csrf: string }) {
               <ActionMenu
                 onDetails={() => { setDetailId(card.id); detailModal.open_modal(); }}
                 onConfigure={() => { setConfigId(card.id); configModal.open_modal(); }}
+                onPay={() => { setPayId(card.id); payModal.open_modal(); }}
               />
             </div>
           ))
@@ -166,6 +251,9 @@ export function CardsView({ csrf }: { csrf: string }) {
       </Modal>
       <Modal open={configModal.open} title="Configurar tarjeta" onClose={() => configModal.close_modal()}>
         {configId !== null && <CardConfigurationPanel csrf={csrf} cardId={configId} onArchived={() => { configModal.close_modal(); load(); }} />}
+      </Modal>
+      <Modal open={payModal.open} title="Pagar tarjeta" onClose={() => payModal.close_modal()}>
+        {payId !== null && <CardPaymentPanel csrf={csrf} cardId={payId} onDone={() => { payModal.close_modal(); load(); }} />}
       </Modal>
     </>
   );
