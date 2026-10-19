@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
-import { api } from "../../api";
+import { authApi } from "../../resources/auth";
+import { settingsApi } from "../../resources/settings";
 import { getInitialTheme, applyTheme, type Theme } from "../../theme";
 import { useSession } from "../../session";
 
@@ -12,9 +13,7 @@ export function SettingsView() {
 
   // Fixed: Proper loading of initial settings
   useEffect(() => {
-    api<{ reporting_currency: string; timezone: string }>(
-      "/api/settings"
-    )
+    settingsApi.get()
       .then((data) => {
         setCurrency(data.reporting_currency);
         setTimezone(data.timezone);
@@ -29,19 +28,8 @@ export function SettingsView() {
 
     // Save profile and settings in parallel
     await Promise.all([
-      api("/api/auth/profile", {
-        method: "PATCH",
-        csrf,
-        body: JSON.stringify({ display_name: name }),
-      }),
-      api("/api/settings", {
-        method: "PATCH",
-        csrf,
-        body: JSON.stringify({
-          reporting_currency: currency,
-          timezone,
-        }),
-      }),
+      authApi.updateProfile(csrf, { display_name: name }),
+      settingsApi.update(csrf, { reporting_currency: currency, timezone }),
     ]);
   }
 

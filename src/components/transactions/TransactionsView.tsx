@@ -1,5 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api } from "../../api";
+import { accountsApi } from "../../resources/accounts";
+import { cardsApi } from "../../resources/cards";
+import { categoriesApi } from "../../resources/categories";
+import { transactionsApi } from "../../resources/transactions";
 import type { Transaction, Account, Category, Card } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
@@ -31,10 +34,10 @@ export function TransactionsView() {
 
   const load = async () => {
     const [trans, accts, cds, cats] = await Promise.all([
-      api<Transaction[]>("/api/transactions"),
-      api<Account[]>("/api/accounts"),
-      api<Card[]>("/api/cards"),
-      api<Category[]>("/api/categories"),
+      transactionsApi.list(),
+      accountsApi.list(),
+      cardsApi.list(),
+      categoriesApi.list(),
     ]);
 
     setTransactions(trans);
@@ -75,34 +78,24 @@ export function TransactionsView() {
     event.preventDefault();
 
     if (form.kind === "credit") {
-      await api(`/api/cards/${form.card_id}/purchases`, {
-        method: "POST",
-        csrf,
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({
-          card_id: Number(form.card_id),
-          category_id: Number(form.category_id),
-          amount: form.amount,
-          currency: form.currency,
-          purchase_date: form.transaction_date,
-          installments_count: Number(form.installments_count),
-          description: form.description,
-        }),
+      await cardsApi.addPurchase(csrf, form.card_id, {
+        card_id: Number(form.card_id),
+        category_id: Number(form.category_id),
+        amount: form.amount,
+        currency: form.currency,
+        purchase_date: form.transaction_date,
+        installments_count: Number(form.installments_count),
+        description: form.description,
       });
     } else {
-      await api("/api/transactions", {
-        method: "POST",
-        csrf,
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({
-          transaction_type: form.transaction_type,
-          amount: form.amount,
-          currency: form.currency,
-          transaction_date: form.transaction_date,
-          account_id: Number(form.account_id),
-          category_id: Number(form.category_id),
-          description: form.description,
-        }),
+      await transactionsApi.create(csrf, {
+        transaction_type: form.transaction_type,
+        amount: form.amount,
+        currency: form.currency,
+        transaction_date: form.transaction_date,
+        account_id: Number(form.account_id),
+        category_id: Number(form.category_id),
+        description: form.description,
       });
     }
 
@@ -112,10 +105,7 @@ export function TransactionsView() {
   }
 
   async function remove(id: number) {
-    await api(`/api/transactions/${id}`, {
-      method: "DELETE",
-      csrf,
-    });
+    await transactionsApi.remove(csrf, id);
     load();
   }
 

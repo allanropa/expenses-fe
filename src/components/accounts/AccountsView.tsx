@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api } from "../../api";
-import type { Account } from "../../types";
+import { accountsApi } from "../../resources/accounts";
+import type { Account, AccountMovement } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
@@ -14,10 +14,10 @@ interface AccountDetailsContentProps {
 
 function AccountDetailsContent({ initialId }: AccountDetailsContentProps) {
   const [detail, setDetail] = useState<Account | null>(null);
-  const [movements, setMovements] = useState<any[]>([]);
+  const [movements, setMovements] = useState<AccountMovement[]>([]);
   useEffect(() => {
-    api<Account>(`/api/accounts/${initialId}`).then(setDetail).catch(() => undefined);
-    api<any[]>(`/api/accounts/${initialId}/movements`).then(setMovements).catch(() => undefined);
+    accountsApi.get(initialId).then(setDetail).catch(() => undefined);
+    accountsApi.movements(initialId).then(setMovements).catch(() => undefined);
   }, [initialId]);
   return (
     <section className="card detail-panel">
@@ -68,7 +68,7 @@ function AccountDetailsPanel({
   useEffect(() => {
     if (!initialId) return;
     setAccountId(initialId);
-    api<Account>(`/api/accounts/${initialId}`).then((value) => {
+    accountsApi.get(initialId).then((value) => {
       setDetail(value);
       setEditName(value.name);
       setEditDesc(value.description ?? "");
@@ -77,14 +77,9 @@ function AccountDetailsPanel({
   async function adjust(event: FormEvent) {
     event.preventDefault();
     if (!accountId) return;
-    await api(`/api/accounts/${accountId}/balance-adjustments`, {
-      method: "POST",
-      csrf,
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      body: JSON.stringify(form),
-    });
+    await accountsApi.adjustBalance(csrf, accountId, form);
     setForm({ ...form, target_balance: "", description: "" });
-    const updated = await api<Account>(`/api/accounts/${accountId}`);
+    const updated = await accountsApi.get(accountId);
     setDetail(updated);
     setEditName(updated.name);
     setEditDesc(updated.description ?? "");
@@ -93,18 +88,12 @@ function AccountDetailsPanel({
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
 
-    await api(`/api/accounts/${accountId}`, {
-      method: "PATCH",
-      csrf,
-      body: JSON.stringify({
-        name: editName,
-        description: editDesc || null,
-      }),
+    await accountsApi.updateProfile(csrf, accountId, {
+      name: editName,
+      description: editDesc || null,
     });
 
-    const updated = await api<Account>(
-      `/api/accounts/${accountId}`
-    );
+    const updated = await accountsApi.get(accountId);
     setDetail(updated);
     setEditName(updated.name);
     setEditDesc(updated.description ?? "");
@@ -113,10 +102,7 @@ function AccountDetailsPanel({
   }
 
   async function archive() {
-    await api(`/api/accounts/${accountId}/archive`, {
-      method: "POST",
-      csrf,
-    });
+    await accountsApi.archive(csrf, accountId);
     onChanged();
   }
 
@@ -167,7 +153,7 @@ export function AccountsView() {
     opening_balance_date: toISODateString(),
   });
 
-  const load = () => api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
+  const load = () => accountsApi.list().then(setAccounts).catch(() => undefined);
 
   useEffect(() => {
     load();
@@ -175,7 +161,7 @@ export function AccountsView() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    await api("/api/accounts", { method: "POST", csrf, body: JSON.stringify(form) });
+    await accountsApi.create(csrf, form);
     addModal.closeModal();
     setForm({ ...form, name: "", opening_balance: "0" });
     load();

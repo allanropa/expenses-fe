@@ -1,5 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
-import { api } from "../../api";
+import { accountsApi } from "../../resources/accounts";
+import { cardsApi } from "../../resources/cards";
+import { categoriesApi } from "../../resources/categories";
 import type { Card, Account, Purchase, Category } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
@@ -21,9 +23,9 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
   const [rate, setRate] = useState("");
   const [payDate, setPayDate] = useState(toISODateString());
   useEffect(() => {
-    api<Card>(`/api/cards/${cardId}`).then(v => { setCard(v); if (v.currencies[0]) setCurrency(v.currencies[0].currency); }).catch(() => undefined);
-    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
-    api<Category[]>("/api/categories").then(setCategories).catch(() => undefined);
+    cardsApi.get(cardId).then(v => { setCard(v); if (v.currencies[0]) setCurrency(v.currencies[0].currency); }).catch(() => undefined);
+    accountsApi.list().then(setAccounts).catch(() => undefined);
+    categoriesApi.list().then(setCategories).catch(() => undefined);
   }, [cardId]);
   function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
   function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
@@ -39,19 +41,15 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
     event.preventDefault();
     if (!source || !isPositiveAmount(capitalTotal)) return;
     const extras = lines.filter(l => l.kind !== "capital" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || (l.kind === "interes" ? "Interés" : "Cargo adicional") }));
-    await api(`/api/cards/${cardId}/payments`, {
-      method: "POST", csrf,
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      body: JSON.stringify({
-        card_id: cardId,
-        source_account_id: Number(source),
-        obligation_amount: capitalTotal,
-        obligation_currency: currency,
-        source_amount: isMultiCurrency ? sourceAmount : undefined,
-        exchange_rate: isMultiCurrency ? rate : undefined,
-        payment_date: payDate,
-        extra_charges: extras.length > 0 ? extras : undefined,
-      }),
+    await cardsApi.recordPayment(csrf, cardId, {
+      card_id: cardId,
+      source_account_id: Number(source),
+      obligation_amount: capitalTotal,
+      obligation_currency: currency,
+      source_amount: isMultiCurrency ? sourceAmount : undefined,
+      exchange_rate: isMultiCurrency ? rate : undefined,
+      payment_date: payDate,
+      extra_charges: extras.length > 0 ? extras : undefined,
     });
     onDone();
   }
@@ -95,8 +93,8 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
   const [card, setCard] = useState<Card | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   useEffect(() => {
-    api<Card>(`/api/cards/${cardId}`).then(setCard).catch(() => undefined);
-    api<Purchase[]>(`/api/cards/${cardId}/purchases`).then(setPurchases).catch(() => undefined);
+    cardsApi.get(cardId).then(setCard).catch(() => undefined);
+    cardsApi.purchases(cardId).then(setPurchases).catch(() => undefined);
   }, [cardId]);
   if (!card) return <p className="muted">Cargando detalle...</p>;
   const monthlyEstimate = sumAmounts(purchases.map(p => p.installments[0] ? p.installments[0].estimated_total : p.amount));
@@ -143,7 +141,7 @@ function CardConfigurationPanel({ cardId, onArchived }: { cardId: number; onArch
   const [targetDebt, setTargetDebt] = useState("");
   const [adjustmentDate, setAdjustmentDate] = useState(toISODateString());
   useEffect(() => {
-    api<Card>(`/api/cards/${cardId}`).then((value) => {
+    cardsApi.get(cardId).then((value) => {
       setCard(value);
       const cur = value.currencies[0]?.currency ?? "COP";
       setCurrency(cur);
@@ -151,9 +149,9 @@ function CardConfigurationPanel({ cardId, onArchived }: { cardId: number; onArch
       if (rate) setMonthlyRate(String(Number(rate.monthly_rate) * 100));
     }).catch(() => undefined);
   }, [cardId]);
-  async function saveRate(event: FormEvent) { event.preventDefault(); await api(`/api/cards/${cardId}/interest-rates`, { method: "POST", csrf, body: JSON.stringify({ currency, monthly_rate: String(Number(monthlyRate) / 100), effective_from: effectiveFrom, effective_to: effectiveTo || null }) }); setMonthlyRate(""); }
-  async function adjustDebt(event: FormEvent) { event.preventDefault(); await api(`/api/cards/${cardId}/balance-adjustments`, { method: "POST", csrf, headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ currency, target_debt: targetDebt, adjustment_date: adjustmentDate, description: "Ajuste manual de deuda" }) }); setTargetDebt(""); }
-  async function archive() { await api(`/api/cards/${cardId}/archive`, { method: "POST", csrf }); onArchived(); }
+  async function saveRate(event: FormEvent) { event.preventDefault(); await cardsApi.saveInterestRate(csrf, cardId, { currency, monthly_rate: String(Number(monthlyRate) / 100), effective_from: effectiveFrom, effective_to: effectiveTo || null }); setMonthlyRate(""); }
+  async function adjustDebt(event: FormEvent) { event.preventDefault(); await cardsApi.adjustDebt(csrf, cardId, { currency, target_debt: targetDebt, adjustment_date: adjustmentDate, description: "Ajuste manual de deuda" }); setTargetDebt(""); }
+  async function archive() { await cardsApi.archive(csrf, cardId); onArchived(); }
   if (!card) return <p className="muted">Cargando configuración...</p>;
   return (
     <div className="stack">
@@ -189,21 +187,17 @@ export function CardsView() {
   const [payId, setPayId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", issuing_bank: "", description: "", statement_closing_day: "15", currency: "COP", credit_limit: "" });
 
-  const load = () => api<Card[]>("/api/cards").then(setCards).catch(() => undefined);
+  const load = () => cardsApi.list().then(setCards).catch(() => undefined);
   useEffect(() => { load(); }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    await api("/api/cards", {
-      method: "POST",
-      csrf,
-      body: JSON.stringify({
-        name: form.name,
-        issuing_bank: form.issuing_bank || null,
-        description: form.description || null,
-        statement_closing_day: Number(form.statement_closing_day),
-        currencies: [{ currency: form.currency, credit_limit: form.credit_limit || null }],
-      }),
+    await cardsApi.create(csrf, {
+      name: form.name,
+      issuing_bank: form.issuing_bank || null,
+      description: form.description || null,
+      statement_closing_day: Number(form.statement_closing_day),
+      currencies: [{ currency: form.currency, credit_limit: form.credit_limit || null }],
     });
     addModal.closeModal();
     setForm({ ...form, name: "" });

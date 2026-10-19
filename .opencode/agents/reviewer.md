@@ -22,7 +22,7 @@ permissions:
 Review the current changes against AGENTS.md. Use `git status` and `git diff` to see them.
 
 Check that:
-- `api()` is used instead of `fetch`.
+- Components call resource modules in `src/resources/`, not `api()` or `fetch` directly.
 - `csrf` comes from `useSession()` and is sent on every mutating request. No `csrf` prop.
 - No new `any`, `@ts-ignore`, or non-null assertion was added without a reason.
 - Errors are not silently swallowed (`.catch(() => undefined)`).

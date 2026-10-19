@@ -1,5 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
-import { api } from "../../api";
+import { accountsApi } from "../../resources/accounts";
+import { categoriesApi } from "../../resources/categories";
+import { loansApi } from "../../resources/loans";
 import type { Loan, Account, Category } from "../../types";
 import { money } from "../../utils/formatters";
 import { isPositiveAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
@@ -19,7 +21,7 @@ function LoanPaymentPanel({ loanId, onDone }: { loanId: number; onDone: () => vo
   const [payDate, setPayDate] = useState(toISODateString());
   const [lines, setLines] = useState<PaymentLine[]>([{ kind: "capital", amount: "", category_id: "", description: "" }]);
   useEffect(() => {
-    api<Loan>(`/api/loans/${loanId}`).then(v => {
+    loansApi.get(loanId).then(v => {
       setLoan(v);
       const pending = v.installments.find(i => i.status !== "paid");
       if (pending) {
@@ -29,8 +31,8 @@ function LoanPaymentPanel({ loanId, onDone }: { loanId: number; onDone: () => vo
         ]);
       }
     }).catch(() => undefined);
-    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
-    api<Category[]>("/api/categories").then(setCategories).catch(() => undefined);
+    accountsApi.list().then(setAccounts).catch(() => undefined);
+    categoriesApi.list().then(setCategories).catch(() => undefined);
   }, [loanId]);
   function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
   function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
@@ -44,15 +46,12 @@ function LoanPaymentPanel({ loanId, onDone }: { loanId: number; onDone: () => vo
     event.preventDefault();
     if (!source || !isPositiveAmount(paymentTotal)) return;
     const extras = lines.filter(l => l.kind === "gasto" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || "Cargo adicional" }));
-    await api(`/api/loans/${loanId}/payments`, {
-      method: "POST", csrf,
-      body: JSON.stringify({
-        source_account_id: Number(source),
-        payment_date: payDate,
-        scheduled_amount: paymentTotal,
-        interest_paid: isPositiveAmount(interestTotal) ? interestTotal : undefined,
-        extra_charges: extras.length > 0 ? extras : undefined,
-      }),
+    await loansApi.recordPayment(csrf, loanId, {
+      source_account_id: Number(source),
+      payment_date: payDate,
+      scheduled_amount: paymentTotal,
+      interest_paid: isPositiveAmount(interestTotal) ? interestTotal : undefined,
+      extra_charges: extras.length > 0 ? extras : undefined,
     });
     onDone();
   }
@@ -94,7 +93,7 @@ function LoanConfigurationPanel({ loanId, onArchived }: { loanId: number; onArch
   const [startDate, setStartDate] = useState("");
   const [firstPayment, setFirstPayment] = useState("");
   useEffect(() => {
-    api<Loan>(`/api/loans/${loanId}`).then(v => {
+    loansApi.get(loanId).then(v => {
       setLoan(v);
       setName(v.name);
       setRate(String(Number(v.annual_effective_rate) * 100));
@@ -105,18 +104,15 @@ function LoanConfigurationPanel({ loanId, onArchived }: { loanId: number; onArch
   }, [loanId]);
   async function save(event: FormEvent) {
     event.preventDefault();
-    await api(`/api/loans/${loanId}`, {
-      method: "PATCH", csrf,
-      body: JSON.stringify({
-        name,
-        annual_effective_rate: rate ? String(Number(rate) / 100) : undefined,
-        term_months: term ? Number(term) : undefined,
-        start_date: startDate || undefined,
-        first_payment_date: firstPayment || undefined,
-      }),
+    await loansApi.update(csrf, loanId, {
+      name,
+      annual_effective_rate: rate ? String(Number(rate) / 100) : undefined,
+      term_months: term ? Number(term) : undefined,
+      start_date: startDate || undefined,
+      first_payment_date: firstPayment || undefined,
     });
   }
-  async function archive() { await api(`/api/loans/${loanId}/archive`, { method: "POST", csrf }); onArchived(); }
+  async function archive() { await loansApi.archive(csrf, loanId); onArchived(); }
   if (!loan) return <p className="muted">Cargando...</p>;
   return (
     <div className="stack">
@@ -142,10 +138,10 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
   const [extra, setExtra] = useState("");
   const [scheduledAmount, setScheduledAmount] = useState("");
   const [date, setDate] = useState(toISODateString());
-  const load = () => api<Loan>(`/api/loans/${loanId}`).then(setLoan).catch(() => undefined);
+  const load = () => loansApi.get(loanId).then(setLoan).catch(() => undefined);
   useEffect(() => {
     load();
-    api<Account[]>("/api/accounts").then((values) => {
+    accountsApi.list().then((values) => {
       const matches = values.filter(a => a.currency === loan?.currency);
       setAccounts(matches);
       if (matches[0]) setAccountId(String(matches[0].id));
@@ -153,10 +149,7 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
   }, [loanId, loan?.currency]);
   async function pay(event: FormEvent) {
     event.preventDefault();
-    await api(`/api/loans/${loanId}/payments`, {
-      method: "POST", csrf,
-      body: JSON.stringify({ source_account_id: Number(accountId), payment_date: date, scheduled_amount: scheduledAmount || undefined, extra_principal: extra || "0" }),
-    });
+    await loansApi.recordExtraPrincipal(csrf, loanId, { source_account_id: Number(accountId), payment_date: date, scheduled_amount: scheduledAmount || undefined, extra_principal: extra || "0" });
     setExtra(""); setScheduledAmount(""); load();
   }
   if (!loan) return <p className="muted">Cargando préstamo...</p>;
@@ -203,18 +196,15 @@ export function LoansView() {
     source_account_id: "", record_as_income: false,
   });
 
-  const load = () => api<Loan[]>("/api/loans").then(setLoans).catch(() => undefined);
+  const load = () => loansApi.list().then(setLoans).catch(() => undefined);
   useEffect(() => {
     load();
-    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
+    accountsApi.list().then(setAccounts).catch(() => undefined);
   }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    await api("/api/loans", {
-      method: "POST", csrf,
-      body: JSON.stringify({ ...form, principal_amount: form.principal_amount, annual_effective_rate: String(Number(form.annual_effective_rate) / 100), term_months: Number(form.term_months), source_account_id: form.source_account_id ? Number(form.source_account_id) : undefined }),
-    });
+    await loansApi.create(csrf, { ...form, principal_amount: form.principal_amount, annual_effective_rate: String(Number(form.annual_effective_rate) / 100), term_months: Number(form.term_months), source_account_id: form.source_account_id ? Number(form.source_account_id) : undefined });
     addModal.closeModal();
     setForm({ ...form, name: "", principal_amount: "", annual_effective_rate: "" });
     load();

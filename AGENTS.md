@@ -44,11 +44,12 @@ src/
   session.tsx           SessionProvider + useSession() (csrf_token and user)
   env.ts                checkEnv(): validates VITE_API_URL before render
   api.ts                The ONLY fetch wrapper. Base URL resolution, credentials, CSRF, error parsing
+  resources/*.ts        One module per backend resource (accountsApi, cardsApi, ...). Components call these
   types.ts              Shared API types (Session, Account, ...)
   theme.ts, *.css       Theme switching; plain CSS with class names (no Tailwind/CSS-in-JS)
   utils/formatters.ts   money(), periodLabel(), toISODateString()
   utils/amounts.ts      Exact decimal money math: sumAmounts, sumByCurrency, multiplyAmount, isPositiveAmount
-  hooks/index.ts        useApiData, useForm, useModal, useSelection
+  hooks/index.ts        useForm, useModal
   components/
     common/index.tsx    Modal, ActionMenu (shared UI)
     auth/Auth.tsx       Login / registration
@@ -80,7 +81,8 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - Never use `dangerouslySetInnerHTML`. React escaping is the default; keep it that way.
 
 ### Data fetching and mutations
-- **Always use `api()` from `src/api.ts`.** Never call `fetch` directly, because `api()` handles `credentials: "include"`, the `X-CSRF-Token` header, and error parsing.
+- **Components do not call `api()` or `fetch`.** Call the resource module for the endpoint, such as `accountsApi.list()` or `cardsApi.recordPayment(csrf, id, body)`. Resource modules live in `src/resources/`, and each one calls `api()` from `src/api.ts`. `api()` handles `credentials: "include"`, the `X-CSRF-Token` header, and error parsing.
+- To add an endpoint, add a function to the resource module. Put the `Idempotency-Key` header there for create-style POSTs. Use `src/resources/*.test.ts` to check the method, URL, and headers.
 - Pass `csrf` on every mutating request (POST, PATCH, DELETE).
 - Load independent data in parallel with `Promise.all`, not sequential awaits.
 - Use `useEffect` with an explicit dependency array. Use `[]` for mount-only loads.
@@ -98,7 +100,6 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render (see CODE_STRUCTURE.md).
 - **Modals:** `useModal()` returns `openModal` / `closeModal`. Pair it with `<Modal open onClose title>`.
 - **Forms:** `useForm()` from `hooks/index.ts`. Do not write local form helpers.
-- **Lists:** `useSelection()` for selected items; `useApiData()` for simple GET loads (it has `refetch`).
 
 ### Styling
 - Use existing class names in `styles.css` / `theme.css` (`card`, `list-card`, `list-item`, `page-heading`, `eyebrow`, `muted`, `inline-form`, `stack`, `danger-button`, `summary-strip`, ...).
@@ -110,7 +111,7 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 
 ## Testing
 
-- Framework: **Vitest**. There is one existing test file, `src/format.test.ts`.
+- Framework: **Vitest**. Existing tests: `src/format.test.ts`, `src/utils/amounts.test.ts`, `src/env.test.ts`, and `src/resources/resources.test.ts` (checks each migrated request's method, URL, and headers against the original calls).
 - New pure logic (formatters, hooks with logic, data transforms) should get tests next to the source file, named `*.test.ts`.
 - For UI changes, the type-check and tests are not enough. Run `npm run dev` and check the flow in a browser, or say explicitly that you did not verify it visually.
 
@@ -118,7 +119,7 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 
 - **`package-lock.json` is untracked.** It should be committed (see Improvements). Ask before committing it.
 - **TypeScript is pinned to `^6.0.3`, not 7.x.** `typescript-eslint` 8.x supports TypeScript `<6.1` only. Do not upgrade TypeScript past 6.x until `typescript-eslint` supports it.
-- **Lint debt (warnings):** `react-hooks/set-state-in-effect` is a warning because load-on-mount is used across views. `@typescript-eslint/no-explicit-any` is a warning because of existing `any` casts in `AccountsView.tsx` and `BudgetsView.tsx`. Turn both into errors after the data-fetching refactor.
+- **Lint debt (warnings):** `react-hooks/set-state-in-effect` is a warning because load-on-mount is used across views. Turn it into an error after the data-fetching refactor. `@typescript-eslint/no-explicit-any` is an error, and no `any` casts remain.
 - **Add dependencies with `npm install -D <pkg>`.** Use a caret range (`^`) and commit the lockfile change with it. Ask before adding one.
 - **`src/main.tsx.bak`** is a stale backup. It is git-tracked, so `.gitignore`'s `*.bak` does not hide it. Do not edit it, and ask before deleting it.
 - **Overlapping docs:** `CHANGES.md`, `REFACTORING_COMPLETE.md`, `REFACTORING_REPORT.md`, `README_REFACTORED.md`, and `CODE_STRUCTURE.md` describe past refactors. Some details are stale (e.g. CODE_STRUCTURE says `main.tsx` is ~50 lines; it is ~140). The source code is the source of truth. `README.md` has the current setup steps.
@@ -143,7 +144,7 @@ Still open: commit `package-lock.json` (ask first).
 ### P3: Architecture
 11. ~~**Split `main.tsx`**~~ **Done.** The shell is in `src/App.tsx`, the navigation is a module-level constant, and `main.tsx` mounts `<App />`.
 12. ~~**Add a session context**~~ **Done.** `SessionProvider` and `useSession()` in `src/session.tsx`. Views and sub-panels read `csrf_token` from it, and the `csrf` prop is gone.
-13. **Group API calls by resource:** `src/api/accounts.ts`, `src/api/cards.ts`, and so on. Components then call `accountsApi.list()` instead of building URL strings.
+13. ~~**Group API calls by resource**~~ **Done.** One module per resource in `src/resources/` (not `src/api/`, because `src/api.ts` already exists). Components call `accountsApi.list()` and similar. The budget and transaction body types are loose (`Record<string, unknown>` for budgets); tighten them with item 10.
 14. **Consider TanStack Query** for server state (caching, loading and error states, invalidation after mutations). This replaces the hand-written `load()` plumbing. It is a larger change, so agree on it first.
 15. **Lazy-load feature views** with `React.lazy` + `Suspense`, which the old docs already list as a future step.
 16. ~~**Rename the inconsistent hook API**~~ **Done.** `useModal` returns `openModal` / `closeModal`.
@@ -173,7 +174,7 @@ OpenCode reads this file automatically. The project agents, skill, and permissio
 
 | Agent | Mode | Purpose | Edits allowed |
 | --- | --- | --- | --- |
-| `reviewer` | subagent | Review diffs against this file: `api()` usage, `csrf` on mutations, no new `any`, errors surfaced, shared hooks reused | No |
+| `reviewer` | subagent | Review diffs against this file: resource modules used instead of `api()` in components, `csrf` on mutations, no new `any`, errors surfaced, shared hooks reused | No |
 | `feature-builder` | primary | Scaffold a new view using the `add-view` skill | Yes |
 | `test-writer` | subagent | Write Vitest tests for formatters, hooks, and `api()` | Only `src/**/*.test.ts(x)` |
 | `api-auditor` | subagent | Compare endpoints used in components with `types.ts` and report mismatches | No |

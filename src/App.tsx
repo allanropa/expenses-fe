@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode } from "react";
-import { api } from "./api";
+import { authApi } from "./resources/auth";
 import type { Session } from "./types";
 import { Auth } from "./components/auth/Auth";
 import { DashboardView } from "./components/dashboard/DashboardView";
@@ -31,7 +31,7 @@ export function App() {
 
   // Fixed: Proper error handling and only fetch on mount
   useEffect(() => {
-    api<Session>("/api/auth/session")
+    authApi.session()
       .then(setSession)
       .catch(() => {
         // User is not authenticated
@@ -53,10 +53,7 @@ export function App() {
   };
 
   async function logout() {
-    await api("/api/auth/logout", {
-      method: "POST",
-      csrf: activeSession.csrf_token,
-    });
+    await authApi.logout(activeSession.csrf_token);
     setSession(null);
   }
 

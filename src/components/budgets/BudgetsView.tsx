@@ -1,5 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
-import { api } from "../../api";
+import { accountsApi } from "../../resources/accounts";
+import { budgetsApi, type BudgetSummary } from "../../resources/budgets";
+import { cardsApi } from "../../resources/cards";
 import type { Budget, Account, Card } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
@@ -10,10 +12,10 @@ import { useSession } from "../../session";
 
 function BudgetDetailsContent({ initialId }: { initialId: string }) {
   const [budget, setBudget] = useState<Budget | null>(null);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<BudgetSummary | null>(null);
   useEffect(() => {
-    api<Budget>(`/api/budgets/${initialId}`).then(setBudget).catch(() => undefined);
-    api(`/api/budgets/${initialId}/summary`).then(setSummary).catch(() => undefined);
+    budgetsApi.get(initialId).then(setBudget).catch(() => undefined);
+    budgetsApi.summary(initialId).then(setSummary).catch(() => undefined);
   }, [initialId]);
   if (!budget) return <p className="muted">Cargando...</p>;
   const periodLabel = (t: string) => ({ daily: "Diario", weekly: "Semanal", monthly: "Mensual", custom: "Personalizado" })[t] ?? t;
@@ -56,7 +58,7 @@ function BudgetConfigurationPanel({ initialId, onArchived }: { initialId: string
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   useEffect(() => {
-    api<Budget>(`/api/budgets/${initialId}`).then(v => {
+    budgetsApi.get(initialId).then(v => {
       setBudget(v);
       setName(v.name);
       setBudgetType(v.budget_type);
@@ -72,9 +74,9 @@ function BudgetConfigurationPanel({ initialId, onArchived }: { initialId: string
     event.preventDefault();
     const body: Record<string, unknown> = { name, budget_type: budgetType, target_amount: targetAmount, period_type: periodType, scope, spending_type: spendingType };
     if (periodType === "custom") { body.start_date = startDate; body.end_date = endDate; }
-    await api(`/api/budgets/${initialId}`, { method: "PATCH", csrf, body: JSON.stringify(body) });
+    await budgetsApi.update(csrf, initialId, body);
   }
-  async function archive() { await api(`/api/budgets/${initialId}/archive`, { method: "POST", csrf }); onArchived(); }
+  async function archive() { await budgetsApi.archive(csrf, initialId); onArchived(); }
   if (!budget) return <p className="muted">Cargando...</p>;
   return (
     <div className="stack">
@@ -110,11 +112,11 @@ export function BudgetsView() {
     start_date: toISODateString(), end_date: toISODateString(),
   });
 
-  const load = () => api<Budget[]>("/api/budgets").then(setBudgets).catch(() => undefined);
+  const load = () => budgetsApi.list().then(setBudgets).catch(() => undefined);
   useEffect(() => {
     load();
-    api<Account[]>("/api/accounts").then(setAccounts).catch(() => undefined);
-    api<Card[]>("/api/cards").then(setCards).catch(() => undefined);
+    accountsApi.list().then(setAccounts).catch(() => undefined);
+    cardsApi.list().then(setCards).catch(() => undefined);
   }, []);
 
   async function submit(event: FormEvent) {
@@ -132,7 +134,7 @@ export function BudgetsView() {
     } else { delete body.card_id; }
     delete body.category_id;
     if (form.period_type !== "custom") { delete body.start_date; delete body.end_date; }
-    await api("/api/budgets", { method: "POST", csrf, body: JSON.stringify(body) });
+    await budgetsApi.create(csrf, body);
     addModal.closeModal();
     setForm({ ...form, name: "", target_amount: "" });
     load();

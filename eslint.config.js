@@ -15,8 +15,7 @@ export default tseslint.config(
       "no-undef": "off",
       // Load-on-mount via setState in effects is used throughout the app; revisit with the data-fetching refactor.
       "react-hooks/set-state-in-effect": "warn",
-      // Existing `any` casts in AccountsView/BudgetsView are tracked debt; make them errors once typed.
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
 );

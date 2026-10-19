@@ -10,7 +10,7 @@ permissions:
     effect: deny
 ---
 
-Find every `api(...)` call in `src/`. For each endpoint:
+Find every `api(...)` call in `src/resources/` (one module per resource). Also flag any `api(` or `fetch(` call in components, since they should use resource modules. For each endpoint:
 
 1. Note the file, the HTTP method, and the path.
 2. Find the type the response is cast to (e.g. `api<Account[]>`), and check that it exists in `src/types.ts`.

@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { api } from "../../api";
+import { authApi } from "../../resources/auth";
 import type { Session } from "../../types";
 import { useForm } from "../../hooks";
 
@@ -20,13 +20,7 @@ export function Auth({ onSession }: AuthProps) {
     event.preventDefault();
     setError("");
     try {
-      const session = await api<Session>(
-        registering ? "/api/auth/register" : "/api/auth/login",
-        {
-          method: "POST",
-          body: JSON.stringify(form),
-        }
-      );
+      const session: Session = await (registering ? authApi.register(form) : authApi.login(form));
       onSession(session);
     } catch (requestError) {
       setError(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../api";
+import { dashboardApi } from "../../resources/dashboard";
 import type { Dashboard } from "../../types";
 import { money } from "../../utils/formatters";
 
@@ -7,7 +7,7 @@ export function DashboardView() {
   const [data, setData] = useState<Dashboard | null>(null);
 
   useEffect(() => {
-    api<Dashboard>("/api/dashboard")
+    dashboardApi.get()
       .then(setData)
       .catch(() => undefined);
   }, []);
