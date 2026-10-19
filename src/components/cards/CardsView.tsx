@@ -6,10 +6,12 @@ import { toISODateString } from "../../utils/formatters";
 import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
+import { useSession } from "../../session";
 
 type PaymentLine = { kind: "capital" | "interes" | "gasto"; amount: string; category_id: string; description: string };
 
-function CardPaymentPanel({ csrf, cardId, onDone }: { csrf: string; cardId: number; onDone: () => void }) {
+function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => void }) {
+  const { csrf_token: csrf } = useSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [card, setCard] = useState<Card | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -131,7 +133,8 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
   );
 }
 
-function CardConfigurationPanel({ csrf, cardId, onArchived }: { csrf: string; cardId: number; onArchived: () => void }) {
+function CardConfigurationPanel({ cardId, onArchived }: { cardId: number; onArchived: () => void }) {
+  const { csrf_token: csrf } = useSession();
   const [card, setCard] = useState<Card | null>(null);
   const [currency, setCurrency] = useState("COP");
   const [monthlyRate, setMonthlyRate] = useState("");
@@ -174,7 +177,8 @@ function CardConfigurationPanel({ csrf, cardId, onArchived }: { csrf: string; ca
   );
 }
 
-export function CardsView({ csrf }: { csrf: string }) {
+export function CardsView() {
+  const { csrf_token: csrf } = useSession();
   const [cards, setCards] = useState<Card[]>([]);
   const addModal = useModal();
   const detailModal = useModal();
@@ -201,7 +205,7 @@ export function CardsView({ csrf }: { csrf: string }) {
         currencies: [{ currency: form.currency, credit_limit: form.credit_limit || null }],
       }),
     });
-    addModal.close_modal();
+    addModal.closeModal();
     setForm({ ...form, name: "" });
     load();
   }
@@ -212,7 +216,7 @@ export function CardsView({ csrf }: { csrf: string }) {
     <>
       <header className="page-heading">
         <div><p className="eyebrow">Obligaciones</p><h2>Tarjetas</h2></div>
-        <button onClick={() => addModal.open_modal()}>Agregar tarjeta</button>
+        <button onClick={() => addModal.openModal()}>Agregar tarjeta</button>
       </header>
       <section className="summary-strip">
         <strong>{cards.length} tarjetas</strong>
@@ -228,15 +232,15 @@ export function CardsView({ csrf }: { csrf: string }) {
               </div>
               <b>{card.currencies.map(c => money(c.outstanding_debt, c.currency)).join(" / ")}</b>
               <ActionMenu
-                onDetails={() => { setDetailId(card.id); detailModal.open_modal(); }}
-                onConfigure={() => { setConfigId(card.id); configModal.open_modal(); }}
-                onPay={() => { setPayId(card.id); payModal.open_modal(); }}
+                onDetails={() => { setDetailId(card.id); detailModal.openModal(); }}
+                onConfigure={() => { setConfigId(card.id); configModal.openModal(); }}
+                onPay={() => { setPayId(card.id); payModal.openModal(); }}
               />
             </div>
           ))
         )}
       </section>
-      <Modal open={addModal.open} title="Agregar tarjeta" onClose={() => addModal.close_modal()}>
+      <Modal open={addModal.open} title="Agregar tarjeta" onClose={() => addModal.closeModal()}>
         <form className="stack" onSubmit={submit}>
           <label>Nombre<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
           <label>Banco emisor<input value={form.issuing_bank} onChange={e => setForm({ ...form, issuing_bank: e.target.value })} /></label>
@@ -247,14 +251,14 @@ export function CardsView({ csrf }: { csrf: string }) {
           <button>Guardar tarjeta</button>
         </form>
       </Modal>
-      <Modal open={detailModal.open} title="Detalle de tarjeta" onClose={() => detailModal.close_modal()}>
+      <Modal open={detailModal.open} title="Detalle de tarjeta" onClose={() => detailModal.closeModal()}>
         {detailId !== null && <CardDetailsContent cardId={detailId} />}
       </Modal>
-      <Modal open={configModal.open} title="Configurar tarjeta" onClose={() => configModal.close_modal()}>
-        {configId !== null && <CardConfigurationPanel csrf={csrf} cardId={configId} onArchived={() => { configModal.close_modal(); load(); }} />}
+      <Modal open={configModal.open} title="Configurar tarjeta" onClose={() => configModal.closeModal()}>
+        {configId !== null && <CardConfigurationPanel cardId={configId} onArchived={() => { configModal.closeModal(); load(); }} />}
       </Modal>
-      <Modal open={payModal.open} title="Pagar tarjeta" onClose={() => payModal.close_modal()}>
-        {payId !== null && <CardPaymentPanel csrf={csrf} cardId={payId} onDone={() => { payModal.close_modal(); load(); }} />}
+      <Modal open={payModal.open} title="Pagar tarjeta" onClose={() => payModal.closeModal()}>
+        {payId !== null && <CardPaymentPanel cardId={payId} onDone={() => { payModal.closeModal(); load(); }} />}
       </Modal>
     </>
   );

@@ -6,10 +6,12 @@ import { isPositiveAmount, sumAmounts, sumByCurrency } from "../../utils/amounts
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
+import { useSession } from "../../session";
 
 type PaymentLine = { kind: "capital" | "interes" | "gasto"; amount: string; category_id: string; description: string };
 
-function LoanPaymentPanel({ csrf, loanId, onDone }: { csrf: string; loanId: number; onDone: () => void }) {
+function LoanPaymentPanel({ loanId, onDone }: { loanId: number; onDone: () => void }) {
+  const { csrf_token: csrf } = useSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loan, setLoan] = useState<Loan | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,7 +85,8 @@ function LoanPaymentPanel({ csrf, loanId, onDone }: { csrf: string; loanId: numb
   );
 }
 
-function LoanConfigurationPanel({ csrf, loanId, onArchived }: { csrf: string; loanId: number; onArchived: () => void }) {
+function LoanConfigurationPanel({ loanId, onArchived }: { loanId: number; onArchived: () => void }) {
+  const { csrf_token: csrf } = useSession();
   const [loan, setLoan] = useState<Loan | null>(null);
   const [name, setName] = useState("");
   const [rate, setRate] = useState("");
@@ -131,7 +134,8 @@ function LoanConfigurationPanel({ csrf, loanId, onArchived }: { csrf: string; lo
   );
 }
 
-function LoanDetailsContent({ csrf, loanId }: { csrf: string; loanId: number }) {
+function LoanDetailsContent({ loanId }: { loanId: number }) {
+  const { csrf_token: csrf } = useSession();
   const [loan, setLoan] = useState<Loan | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState("");
@@ -182,7 +186,8 @@ function LoanDetailsContent({ csrf, loanId }: { csrf: string; loanId: number }) 
   );
 }
 
-export function LoansView({ csrf }: { csrf: string }) {
+export function LoansView() {
+  const { csrf_token: csrf } = useSession();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const addModal = useModal();
@@ -210,7 +215,7 @@ export function LoansView({ csrf }: { csrf: string }) {
       method: "POST", csrf,
       body: JSON.stringify({ ...form, principal_amount: form.principal_amount, annual_effective_rate: String(Number(form.annual_effective_rate) / 100), term_months: Number(form.term_months), source_account_id: form.source_account_id ? Number(form.source_account_id) : undefined }),
     });
-    addModal.close_modal();
+    addModal.closeModal();
     setForm({ ...form, name: "", principal_amount: "", annual_effective_rate: "" });
     load();
   }
@@ -221,7 +226,7 @@ export function LoansView({ csrf }: { csrf: string }) {
     <>
       <header className="page-heading">
         <div><p className="eyebrow">Deuda recibida</p><h2>Préstamos</h2></div>
-        <button onClick={() => addModal.open_modal()}>Agregar préstamo</button>
+        <button onClick={() => addModal.openModal()}>Agregar préstamo</button>
       </header>
       <section className="summary-strip">
         <strong>{loans.length} préstamos</strong>
@@ -234,15 +239,15 @@ export function LoansView({ csrf }: { csrf: string }) {
               <div><strong>{loan.name}</strong><small>{loan.term_months} meses · EA {Number(loan.annual_effective_rate) * 100}%</small></div>
               <b>{money(loan.outstanding_principal, loan.currency)}</b>
               <ActionMenu
-                onDetails={() => { setDetailId(loan.id); detailModal.open_modal(); }}
-                onConfigure={() => { setConfigId(loan.id); configModal.open_modal(); }}
-                onPay={() => { setPayId(loan.id); payModal.open_modal(); }}
+                onDetails={() => { setDetailId(loan.id); detailModal.openModal(); }}
+                onConfigure={() => { setConfigId(loan.id); configModal.openModal(); }}
+                onPay={() => { setPayId(loan.id); payModal.openModal(); }}
               />
             </div>
           ))
         )}
       </section>
-      <Modal open={addModal.open} title="Agregar préstamo" onClose={() => addModal.close_modal()}>
+      <Modal open={addModal.open} title="Agregar préstamo" onClose={() => addModal.closeModal()}>
         <form className="stack" onSubmit={submit}>
           <label>Nombre<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
           <label>Principal<input required type="number" min="0" step="0.01" value={form.principal_amount} onChange={e => setForm({ ...form, principal_amount: e.target.value })} /></label>
@@ -256,14 +261,14 @@ export function LoansView({ csrf }: { csrf: string }) {
           <button>Guardar préstamo</button>
         </form>
       </Modal>
-      <Modal open={detailModal.open} title="Detalle y pagos del préstamo" onClose={() => detailModal.close_modal()}>
-        {detailId !== null && <LoanDetailsContent csrf={csrf} loanId={detailId} />}
+      <Modal open={detailModal.open} title="Detalle y pagos del préstamo" onClose={() => detailModal.closeModal()}>
+        {detailId !== null && <LoanDetailsContent loanId={detailId} />}
       </Modal>
-      <Modal open={configModal.open} title="Configurar préstamo" onClose={() => configModal.close_modal()}>
-        {configId !== null && <LoanConfigurationPanel csrf={csrf} loanId={configId} onArchived={() => { configModal.close_modal(); load(); }} />}
+      <Modal open={configModal.open} title="Configurar préstamo" onClose={() => configModal.closeModal()}>
+        {configId !== null && <LoanConfigurationPanel loanId={configId} onArchived={() => { configModal.closeModal(); load(); }} />}
       </Modal>
-      <Modal open={payModal.open} title="Pagar préstamo" onClose={() => payModal.close_modal()}>
-        {payId !== null && <LoanPaymentPanel csrf={csrf} loanId={payId} onDone={() => { payModal.close_modal(); load(); }} />}
+      <Modal open={payModal.open} title="Pagar préstamo" onClose={() => payModal.closeModal()}>
+        {payId !== null && <LoanPaymentPanel loanId={payId} onDone={() => { payModal.closeModal(); load(); }} />}
       </Modal>
     </>
   );

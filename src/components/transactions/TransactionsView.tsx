@@ -6,8 +6,10 @@ import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { ActionMenu } from "../common";
 import { useModal } from "../../hooks";
+import { useSession } from "../../session";
 
-export function TransactionsView({ csrf }: { csrf: string }) {
+export function TransactionsView() {
+  const { csrf_token: csrf } = useSession();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
@@ -104,7 +106,7 @@ export function TransactionsView({ csrf }: { csrf: string }) {
       });
     }
 
-    addModal.close_modal();
+    addModal.closeModal();
     setForm((prev) => ({ ...prev, amount: "", description: "" }));
     load();
   }

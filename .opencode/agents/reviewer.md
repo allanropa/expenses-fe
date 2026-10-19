@@ -23,7 +23,7 @@ Review the current changes against AGENTS.md. Use `git status` and `git diff` to
 
 Check that:
 - `api()` is used instead of `fetch`.
-- `csrf` is passed on every mutating request.
+- `csrf` comes from `useSession()` and is sent on every mutating request. No `csrf` prop.
 - No new `any`, `@ts-ignore`, or non-null assertion was added without a reason.
 - Errors are not silently swallowed (`.catch(() => undefined)`).
 - Shared hooks and formatters are reused instead of local copies.

@@ -6,6 +6,7 @@ import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useForm, useModal } from "../../hooks";
+import { useSession } from "../../session";
 
 interface AccountDetailsContentProps {
   initialId: string;
@@ -46,16 +47,15 @@ function AccountDetailsContent({ initialId }: AccountDetailsContentProps) {
 }
 
 interface AccountDetailsPanelProps {
-  csrf: string;
   initialId?: string;
   onChanged: () => void;
 }
 
 function AccountDetailsPanel({
-  csrf,
   initialId,
   onChanged,
 }: AccountDetailsPanelProps) {
+  const { csrf_token: csrf } = useSession();
   const [accountId, setAccountId] = useState(initialId ?? "");
   const [detail, setDetail] = useState<Account | null>(null);
   const [form, setForm] = useState({
@@ -151,7 +151,8 @@ function AccountDetailsPanel({
   );
 }
 
-export function AccountsView({ csrf }: { csrf: string }) {
+export function AccountsView() {
+  const { csrf_token: csrf } = useSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const addModal = useModal();
   const detailModal = useModal();
@@ -175,7 +176,7 @@ export function AccountsView({ csrf }: { csrf: string }) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     await api("/api/accounts", { method: "POST", csrf, body: JSON.stringify(form) });
-    addModal.close_modal();
+    addModal.closeModal();
     setForm({ ...form, name: "", opening_balance: "0" });
     load();
   }
@@ -193,7 +194,7 @@ export function AccountsView({ csrf }: { csrf: string }) {
           <p className="eyebrow">Liquidez</p>
           <h2>Cuentas</h2>
         </div>
-        <button onClick={() => addModal.open_modal()}>
+        <button onClick={() => addModal.openModal()}>
           Agregar cuenta
         </button>
       </header>
@@ -228,11 +229,11 @@ export function AccountsView({ csrf }: { csrf: string }) {
               <ActionMenu
                 onDetails={() => {
                   setDetailId(account.id);
-                  detailModal.open_modal();
+                  detailModal.openModal();
                 }}
                 onConfigure={() => {
                   setConfigId(account.id);
-                  configModal.open_modal();
+                  configModal.openModal();
                 }}
               />
             </div>
@@ -243,7 +244,7 @@ export function AccountsView({ csrf }: { csrf: string }) {
       <Modal
         open={addModal.open}
         title="Agregar cuenta"
-        onClose={() => addModal.close_modal()}
+        onClose={() => addModal.closeModal()}
       >
         <form className="stack" onSubmit={submit}>
           <label>
@@ -294,7 +295,7 @@ export function AccountsView({ csrf }: { csrf: string }) {
       <Modal
         open={detailModal.open}
         title="Detalle de cuenta"
-        onClose={() => detailModal.close_modal()}
+        onClose={() => detailModal.closeModal()}
       >
         {detailId !== null && <AccountDetailsContent initialId={String(detailId)} />}
       </Modal>
@@ -302,11 +303,10 @@ export function AccountsView({ csrf }: { csrf: string }) {
       <Modal
         open={configModal.open}
         title="Configurar cuenta"
-        onClose={() => configModal.close_modal()}
+        onClose={() => configModal.closeModal()}
       >
         {configId !== null && (
           <AccountDetailsPanel
-            csrf={csrf}
             initialId={String(configId)}
             onChanged={load}
           />

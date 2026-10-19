@@ -39,11 +39,15 @@ Prettier is configured but not enforced yet: 17 existing files are not formatted
 
 ```
 src/
-  main.tsx              App shell: auth gate, view switching, sidebar/mobile nav, logout
+  main.tsx              Entry point: theme, env check, error boundary, mounts <App />
+  App.tsx               App shell: auth gate, SessionProvider, view switching, sidebar/mobile nav, logout
+  session.tsx           SessionProvider + useSession() (csrf_token and user)
+  env.ts                checkEnv(): validates VITE_API_URL before render
   api.ts                The ONLY fetch wrapper. Base URL resolution, credentials, CSRF, error parsing
   types.ts              Shared API types (Session, Account, ...)
   theme.ts, *.css       Theme switching; plain CSS with class names (no Tailwind/CSS-in-JS)
   utils/formatters.ts   money(), periodLabel(), toISODateString()
+  utils/amounts.ts      Exact decimal money math: sumAmounts, sumByCurrency, multiplyAmount, isPositiveAmount
   hooks/index.ts        useApiData, useForm, useModal, useSelection
   components/
     common/index.tsx    Modal, ActionMenu (shared UI)
@@ -53,10 +57,10 @@ src/
 
 ### Navigation
 
-`main.tsx` wires views with three things that must stay in sync:
+`App.tsx` wires views with three things that must stay in sync:
 1. The `View` union type
 2. The `views` record (`Record<View, ReactNode>`)
-3. The `navigation` array (`[View, label][]`)
+3. The `navigation` array (`[View, label][]`, module-level constant)
 
 Adding a view means updating all three.
 
@@ -71,7 +75,7 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - `strict` mode is on. Do not add `any`, `@ts-ignore`, or non-null assertions without a reason. Existing `any` usages (e.g. `movements` in `AccountsView.tsx`) are debt, not a pattern to copy. Add a proper type to `types.ts` instead.
 - Use **named exports** for components (`export function AccountsView`).
 - Component props are typed with an explicit `interface` or inline type.
-- Views that call protected endpoints take `csrf: string` as a prop, passed from `activeSession.csrf_token` in `main.tsx`.
+- Views and sub-panels that call protected endpoints read the session with `const { csrf_token: csrf } = useSession();` (from `src/session.tsx`). They take no `csrf` prop. Views take no props. `SettingsView` reads `user` from the same hook.
 - Hooks start with `use`. Feature views end with `View`. Shared components are PascalCase.
 - Never use `dangerouslySetInnerHTML`. React escaping is the default; keep it that way.
 
@@ -92,14 +96,14 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - **Money math:** never sum or multiply amounts with `Number()` or floats. Use `utils/amounts.ts`: `sumAmounts([...])`, `sumByCurrency(items, currencyOf, amountOf)`, `multiplyAmount(amount, rate, decimals)`, and `isPositiveAmount(x)` for `> 0` checks. Amounts stay decimal strings end to end, because the API uses decimal strings. Use `Number()` only for IDs.
 - **Environment:** `VITE_API_URL` is validated by `checkEnv()` in `src/env.ts`. `main.tsx` shows the error message instead of the app if the value is invalid.
 - **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render (see CODE_STRUCTURE.md).
-- **Modals:** `useModal()` + `<Modal open onClose title>`.
+- **Modals:** `useModal()` returns `openModal` / `closeModal`. Pair it with `<Modal open onClose title>`.
 - **Forms:** `useForm()` from `hooks/index.ts`. Do not write local form helpers.
 - **Lists:** `useSelection()` for selected items; `useApiData()` for simple GET loads (it has `refetch`).
 
 ### Styling
 - Use existing class names in `styles.css` / `theme.css` (`card`, `list-card`, `list-item`, `page-heading`, `eyebrow`, `muted`, `inline-form`, `stack`, `danger-button`, `summary-strip`, ...).
 - Avoid inline `style={{}}` for new code. `AccountsView.tsx` has one; don't add more.
-- Keep the mobile layout working (`mobile-top`, `mobile-menu` in `main.tsx`).
+- Keep the mobile layout working (`mobile-top`, `mobile-menu` in `App.tsx`).
 
 ### Formatting
 - Match the surrounding file's style (2-space indent, double quotes, semicolons). No formatter is configured yet, so don't reformat unrelated code.
@@ -120,7 +124,6 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - **Overlapping docs:** `CHANGES.md`, `REFACTORING_COMPLETE.md`, `REFACTORING_REPORT.md`, `README_REFACTORED.md`, and `CODE_STRUCTURE.md` describe past refactors. Some details are stale (e.g. CODE_STRUCTURE says `main.tsx` is ~50 lines; it is ~140). The source code is the source of truth. `README.md` has the current setup steps.
 - **`vite.config.ts`** `server.allowedHosts` includes `expenses.lan.rpamplona.com`. Keep it when editing the config.
 - **Silent error swallowing** still exists in several places (`.catch(() => undefined)`). Don't copy this pattern.
-- **`main.tsx` still does auth, navigation, and layout** in one file, and `csrf` is prop-drilled into every view.
 
 ## Improvements (proposed)
 
@@ -138,12 +141,12 @@ Still open: commit `package-lock.json` (ask first).
 10. **Make the API contract explicit.** If the backend publishes an OpenAPI schema, generate types from it (e.g. `openapi-typescript`) instead of hand-writing them in `types.ts`. Remove the remaining `any`s this way.
 
 ### P3: Architecture
-11. **Split `main.tsx`:** move the app shell into `src/App.tsx`, move the navigation list into a constant, and keep `main.tsx` as a few lines that mount `App`.
-12. **Add a session context** (`SessionProvider` + `useSession()`) that exposes `csrf` and `user`. This removes the `csrf` prop from every view.
+11. ~~**Split `main.tsx`**~~ **Done.** The shell is in `src/App.tsx`, the navigation is a module-level constant, and `main.tsx` mounts `<App />`.
+12. ~~**Add a session context**~~ **Done.** `SessionProvider` and `useSession()` in `src/session.tsx`. Views and sub-panels read `csrf_token` from it, and the `csrf` prop is gone.
 13. **Group API calls by resource:** `src/api/accounts.ts`, `src/api/cards.ts`, and so on. Components then call `accountsApi.list()` instead of building URL strings.
 14. **Consider TanStack Query** for server state (caching, loading and error states, invalidation after mutations). This replaces the hand-written `load()` plumbing. It is a larger change, so agree on it first.
 15. **Lazy-load feature views** with `React.lazy` + `Suspense`, which the old docs already list as a future step.
-16. **Rename the inconsistent hook API.** `useModal` returns `open_modal` / `close_modal` (snake_case) while the rest of the code is camelCase. Rename to `openModal` / `closeModal` in one change across all call sites, not piecemeal.
+16. ~~**Rename the inconsistent hook API**~~ **Done.** `useModal` returns `openModal` / `closeModal`.
 
 ### P4: Testing, accessibility, and polish
 17. **Test the infrastructure, not just formatters:** `api()` (mocked `fetch`), hooks (with `@testing-library/react`), and one smoke test per view. Use `jsdom` as the Vitest environment for these.
@@ -177,7 +180,7 @@ OpenCode reads this file automatically. The project agents, skill, and permissio
 
 ### Project skill (in `.opencode/skills/`)
 
-- `add-view`: the steps for adding a view (sibling read, types, component, three `main.tsx` edits, `npm run check`). `feature-builder` loads it. Load it directly with `@add-view`.
+- `add-view`: the steps for adding a view (sibling read, types, component using `useSession`, three `App.tsx` edits, `npm run check`). `feature-builder` loads it. Load it directly with `@add-view`.
 
 ### Project config (`opencode.jsonc`)
 
@@ -189,7 +192,7 @@ The files above are the source of truth. Edit them directly; do not copy their c
 
 ## Useful prompts for this repo
 
-- "Add a `<feature>` view following the pattern in `AccountsView.tsx`, and register it in `main.tsx`."
+- "Add a `<feature>` view following the pattern in `AccountsView.tsx`, and register it in `App.tsx`."
 - "Find every call site of `/api/accounts` and list which components depend on the response shape."
 - "Use the reviewer subagent to review my current changes."
 - "Remove the `.catch(() => undefined)` calls in `AccountsView.tsx` and show errors inline instead."

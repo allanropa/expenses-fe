@@ -50,11 +50,11 @@ export function useForm<T extends Record<string, unknown>>(initialState: T) {
 export function useModal(initialOpen = false) {
   const [open, setOpen] = useState(initialOpen);
 
-  const open_modal = useCallback(() => setOpen(true), []);
-  const close_modal = useCallback(() => setOpen(false), []);
+  const openModal = useCallback(() => setOpen(true), []);
+  const closeModal = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
-  return { open, open_modal, close_modal, toggle };
+  return { open, openModal, closeModal, toggle };
 }
 
 /**

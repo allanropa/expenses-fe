@@ -1,14 +1,10 @@
 import { useEffect, useState, FormEvent } from "react";
 import { api } from "../../api";
-import type { Session } from "../../types";
 import { getInitialTheme, applyTheme, type Theme } from "../../theme";
+import { useSession } from "../../session";
 
-interface SettingsViewProps {
-  csrf: string;
-  user: Session["user"];
-}
-
-export function SettingsView({ csrf, user }: SettingsViewProps) {
+export function SettingsView() {
+  const { csrf_token: csrf, user } = useSession();
   const [name, setName] = useState(user.display_name);
   const [currency, setCurrency] = useState("COP");
   const [timezone, setTimezone] = useState("America/Bogota");

@@ -6,6 +6,7 @@ import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
+import { useSession } from "../../session";
 
 function BudgetDetailsContent({ initialId }: { initialId: string }) {
   const [budget, setBudget] = useState<Budget | null>(null);
@@ -43,7 +44,8 @@ function BudgetDetailsContent({ initialId }: { initialId: string }) {
   );
 }
 
-function BudgetConfigurationPanel({ csrf, initialId, onArchived }: { csrf: string; initialId: string; onArchived: () => void }) {
+function BudgetConfigurationPanel({ initialId, onArchived }: { initialId: string; onArchived: () => void }) {
+  const { csrf_token: csrf } = useSession();
   const [budget, setBudget] = useState<Budget | null>(null);
   const [name, setName] = useState("");
   const [budgetType, setBudgetType] = useState("maximum");
@@ -92,7 +94,8 @@ function BudgetConfigurationPanel({ csrf, initialId, onArchived }: { csrf: strin
   );
 }
 
-export function BudgetsView({ csrf }: { csrf: string }) {
+export function BudgetsView() {
+  const { csrf_token: csrf } = useSession();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
@@ -130,7 +133,7 @@ export function BudgetsView({ csrf }: { csrf: string }) {
     delete body.category_id;
     if (form.period_type !== "custom") { delete body.start_date; delete body.end_date; }
     await api("/api/budgets", { method: "POST", csrf, body: JSON.stringify(body) });
-    addModal.close_modal();
+    addModal.closeModal();
     setForm({ ...form, name: "", target_amount: "" });
     load();
   }
@@ -149,7 +152,7 @@ export function BudgetsView({ csrf }: { csrf: string }) {
     <>
       <header className="page-heading">
         <div><p className="eyebrow">Control flexible</p><h2>Presupuestos</h2></div>
-        <button onClick={() => addModal.open_modal()}>Agregar presupuesto</button>
+        <button onClick={() => addModal.openModal()}>Agregar presupuesto</button>
       </header>
       <section className="summary-strip">
         <strong>{budgets.length} presupuestos</strong>
@@ -162,14 +165,14 @@ export function BudgetsView({ csrf }: { csrf: string }) {
               <div><strong>{b.name}</strong><small>{b.budget_type === "daily" ? "Diario" : "Máximo"} · {b.spending_type} · {periodLabel(b)} · {scopeLabel(b)}</small></div>
               <b>{money(b.target_amount, b.currency)}</b>
               <ActionMenu
-                onDetails={() => { setDetailId(b.id); detailModal.open_modal(); }}
-                onConfigure={() => { setConfigId(b.id); configModal.open_modal(); }}
+                onDetails={() => { setDetailId(b.id); detailModal.openModal(); }}
+                onConfigure={() => { setConfigId(b.id); configModal.openModal(); }}
               />
             </div>
           ))
         )}
       </section>
-      <Modal open={addModal.open} title="Agregar presupuesto" onClose={() => addModal.close_modal()}>
+      <Modal open={addModal.open} title="Agregar presupuesto" onClose={() => addModal.closeModal()}>
         <form className="stack" onSubmit={submit}>
           <label>Nombre<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
           <label>Tipo<select value={form.budget_type} onChange={e => setForm({ ...form, budget_type: e.target.value })}><option value="maximum">Máximo</option><option value="daily">Acumulativo diario</option></select></label>
@@ -184,11 +187,11 @@ export function BudgetsView({ csrf }: { csrf: string }) {
           <button>Guardar presupuesto</button>
         </form>
       </Modal>
-      <Modal open={detailModal.open} title="Detalle de presupuesto" onClose={() => detailModal.close_modal()}>
+      <Modal open={detailModal.open} title="Detalle de presupuesto" onClose={() => detailModal.closeModal()}>
         {detailId !== null && <BudgetDetailsContent initialId={String(detailId)} />}
       </Modal>
-      <Modal open={configModal.open} title="Configurar presupuesto" onClose={() => configModal.close_modal()}>
-        {configId !== null && <BudgetConfigurationPanel csrf={csrf} initialId={String(configId)} onArchived={() => { configModal.close_modal(); load(); }} />}
+      <Modal open={configModal.open} title="Configurar presupuesto" onClose={() => configModal.closeModal()}>
+        {configId !== null && <BudgetConfigurationPanel initialId={String(configId)} onArchived={() => { configModal.closeModal(); load(); }} />}
       </Modal>
     </>
   );
