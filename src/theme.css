@@ -30,6 +30,14 @@
   --shadow-panel: #665b4420;
   --shadow-modal: #17211b55;
   --shadow-menu: #17211b22;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-pill: 999px;
 }
 
 [data-theme="dark"] {

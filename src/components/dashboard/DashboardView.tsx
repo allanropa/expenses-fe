@@ -85,12 +85,12 @@ export function DashboardView() {
         </section>
       </div>
       {data.budgets.length > 0 && (
-        <section className="card" style={{ marginTop: 12 }}>
+        <section className="card mt-3">
           <h3>Presupuestos</h3>
           {data.budgets.map((item) => {
             const pct = Math.min(Number(item.percentage_used), 200);
             return (
-              <div key={item.budget_id} style={{ marginBottom: 8 }}>
+              <div key={item.budget_id} className="mb-2">
                 <div className="row">
                   <span>
                     {item.name}
@@ -113,7 +113,7 @@ export function DashboardView() {
         </section>
       )}
       {data.recent_transactions.length > 0 && (
-        <section className="card list-card" style={{ marginTop: 12 }}>
+        <section className="card list-card mt-3">
           <h3>Últimos movimientos</h3>
           {data.recent_transactions.map((item) => (
             <div className="list-item" key={item.id}>

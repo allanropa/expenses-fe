@@ -1,4 +1,4 @@
-import { Component, ErrorInfo, useEffect, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode, useEffect, useRef } from "react";
 
 interface ModalProps {
   open: boolean;
@@ -7,14 +7,42 @@ interface ModalProps {
   children: ReactNode;
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, title, onClose, children }: ModalProps) {
+  const dialogRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (!open) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const trigger = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    (dialog?.querySelector<HTMLElement>(FOCUSABLE) ?? dialog)?.focus();
+    return () => trigger?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const items = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -28,18 +56,16 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
       }}
     >
       <section
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
       >
         <div className="modal-header">
           <h3>{title}</h3>
-          <button
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Cerrar"
-          >
+          <button className="modal-close" onClick={onClose} aria-label="Cerrar">
             ×
           </button>
         </div>
@@ -56,12 +82,7 @@ interface ActionMenuProps {
   onDelete?: () => void;
 }
 
-export function ActionMenu({
-  onDetails,
-  onConfigure,
-  onPay,
-  onDelete,
-}: ActionMenuProps) {
+export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMenuProps) {
   return (
     <details className="item-menu">
       <summary aria-label="Acciones">•••</summary>

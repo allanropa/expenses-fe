@@ -31,7 +31,8 @@ export function App() {
 
   // Fixed: Proper error handling and only fetch on mount
   useEffect(() => {
-    authApi.session()
+    authApi
+      .session()
       .then(setSession)
       .catch(() => {
         // User is not authenticated
@@ -69,6 +70,7 @@ export function App() {
             {navigation.map(([key, label]) => (
               <button
                 className={view === key ? "nav-item active" : "nav-item"}
+                aria-current={view === key ? "page" : undefined}
                 key={key}
                 onClick={() => setView(key)}
               >
@@ -103,6 +105,7 @@ export function App() {
                 {navigation.map(([key, label]) => (
                   <button
                     className={view === key ? "nav-item active" : "nav-item"}
+                    aria-current={view === key ? "page" : undefined}
                     key={key}
                     onClick={() => {
                       setView(key);

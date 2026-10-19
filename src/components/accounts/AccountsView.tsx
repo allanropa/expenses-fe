@@ -130,7 +130,7 @@ function AccountDetailsPanel({
             <label>Descripción<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
             <button>Registrar ajuste</button>
           </form>
-          <button type="button" className="danger-button" onClick={archive} style={{ marginTop: 16 }}>Archivar cuenta</button>
+          <button type="button" className="danger-button mt-4" onClick={archive}>Archivar cuenta</button>
         </>
       )}
     </section>

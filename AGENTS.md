@@ -97,13 +97,14 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - **Money display:** `money(amount, currency)` from `utils/formatters.ts`. It accepts decimal strings.
 - **Money math:** never sum or multiply amounts with `Number()` or floats. Use `utils/amounts.ts`: `sumAmounts([...])`, `sumByCurrency(items, currencyOf, amountOf)`, `multiplyAmount(amount, rate, decimals)`, and `isPositiveAmount(x)` for `> 0` checks. Amounts stay decimal strings end to end, because the API uses decimal strings. Use `Number()` only for IDs.
 - **Environment:** `VITE_API_URL` is validated by `checkEnv()` in `src/env.ts`. `main.tsx` shows the error message instead of the app if the value is invalid.
-- **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render (see CODE_STRUCTURE.md).
+- **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render.
 - **Modals:** `useModal()` returns `openModal` / `closeModal`. Pair it with `<Modal open onClose title>`.
 - **Forms:** `useForm()` from `hooks/index.ts`. Do not write local form helpers.
 
 ### Styling
 - Use existing class names in `styles.css` / `theme.css` (`card`, `list-card`, `list-item`, `page-heading`, `eyebrow`, `muted`, `inline-form`, `stack`, `danger-button`, `summary-strip`, ...).
-- Avoid inline `style={{}}` for new code. `AccountsView.tsx` has one; don't add more.
+- Colors come from the CSS variables in `theme.css` (light and `[data-theme="dark"]`). Never write a hex or rgb value in `styles.css` or a component. Spacing and radius come from `--space-1..4` and `--radius*`.
+- No inline `style={{}}` for static values. Add a class to `styles.css` instead (`mt-2`, `mt-3`, `mt-4`, `mb-2`, `line-*`). The only exceptions are computed widths (budget and dashboard progress bars), which depend on data.
 - Keep the mobile layout working (`mobile-top`, `mobile-menu` in `App.tsx`).
 
 ### Formatting
@@ -111,9 +112,11 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 
 ## Testing
 
-- Framework: **Vitest**. Existing tests: `src/format.test.ts`, `src/utils/amounts.test.ts`, `src/env.test.ts`, and `src/resources/resources.test.ts` (checks each migrated request's method, URL, and headers against the original calls).
-- New pure logic (formatters, hooks with logic, data transforms) should get tests next to the source file, named `*.test.ts`.
-- For UI changes, the type-check and tests are not enough. Run `npm run dev` and check the flow in a browser, or say explicitly that you did not verify it visually.
+- Framework: **Vitest**, with `@testing-library/react` and jsdom for DOM tests, and `axe-core` for accessibility checks.
+- Node tests (default environment): `src/format.test.ts`, `src/utils/amounts.test.ts`, `src/env.test.ts`, `src/api.test.ts`, and `src/resources/resources.test.ts` (checks each request's method, URL, and headers).
+- DOM tests start with `// @vitest-environment jsdom`. They are `src/hooks/index.test.ts`, `src/components/views.test.tsx` (each view renders, and add buttons open a dialog), `src/components/a11y.test.tsx` (axe on every view and open dialog, plus a negative control), and `src/components/common/modal.test.tsx` (focus in, focus return, Tab wrap).
+- New pure logic (formatters, hooks with logic, data transforms) gets tests next to the source file, named `*.test.ts`. New endpoints get a check in `resources.test.ts`. New views get a line in `views.test.tsx` and `a11y.test.tsx`.
+- Tests can't check the real layout. For UI changes, run `npm run dev` and check the flow in a browser, or say explicitly that you did not verify it visually.
 
 ## Known issues (be aware, don't silently "fix" unrelated)
 
@@ -121,8 +124,7 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - **TypeScript is pinned to `^6.0.3`, not 7.x.** `typescript-eslint` 8.x supports TypeScript `<6.1` only. Do not upgrade TypeScript past 6.x until `typescript-eslint` supports it.
 - **Lint debt (warnings):** `react-hooks/set-state-in-effect` is a warning because load-on-mount is used across views. Turn it into an error after the data-fetching refactor. `@typescript-eslint/no-explicit-any` is an error, and no `any` casts remain.
 - **Add dependencies with `npm install -D <pkg>`.** Use a caret range (`^`) and commit the lockfile change with it. Ask before adding one.
-- **`src/main.tsx.bak`** is a stale backup. It is git-tracked, so `.gitignore`'s `*.bak` does not hide it. Do not edit it, and ask before deleting it.
-- **Overlapping docs:** `CHANGES.md`, `REFACTORING_COMPLETE.md`, `REFACTORING_REPORT.md`, `README_REFACTORED.md`, and `CODE_STRUCTURE.md` describe past refactors. Some details are stale (e.g. CODE_STRUCTURE says `main.tsx` is ~50 lines; it is ~140). The source code is the source of truth. `README.md` has the current setup steps.
+- **Docs:** `README.md` (setup, scripts, Docker) and `AGENTS.md` (this guide) are the only project docs. Do not add refactor reports or change logs; put lasting rules here.
 - **`vite.config.ts`** `server.allowedHosts` includes `expenses.lan.rpamplona.com`. Keep it when editing the config.
 - **Silent error swallowing** still exists in several places (`.catch(() => undefined)`). Don't copy this pattern.
 
@@ -150,10 +152,10 @@ Still open: commit `package-lock.json` (ask first).
 16. ~~**Rename the inconsistent hook API**~~ **Done.** `useModal` returns `openModal` / `closeModal`.
 
 ### P4: Testing, accessibility, and polish
-17. **Test the infrastructure, not just formatters:** `api()` (mocked `fetch`), hooks (with `@testing-library/react`), and one smoke test per view. Use `jsdom` as the Vitest environment for these.
-18. **Accessibility pass:** every input needs a visible label, icon-only buttons need `aria-label`, and modals need focus trapping and focus return.
-19. **Design tokens:** move colors and spacing into CSS variables in `theme.css`, and remove inline styles.
-20. **Clean up:** delete `src/main.tsx.bak`, and consolidate the five refactor docs into `README.md` (plus a `docs/` folder if needed). Ask before deleting anything.
+17. ~~**Test the infrastructure, not just formatters**~~ **Done.** `api()`, hooks, every resource request, a smoke test per view, and the add dialogs are covered (see Testing). Interaction tests beyond that are still open.
+18. ~~**Accessibility pass**~~ **Done for the audited items.** Modals move focus in, return it on close, and trap Tab. Nav marks the current page with `aria-current`. Line-item inputs have accessible names, and the auth error is announced (`role="alert"`). axe reports no violations on any view or open dialog. Not covered: color contrast (axe can't check it in jsdom), keyboard use of the `ActionMenu` `<details>` menu, and focus return when a dialog is opened by a mouse click in Safari (Safari doesn't focus buttons on click).
+19. ~~**Design tokens**~~ **Done for colors and inline styles.** Colors were already tokens. Spacing (`--space-*`) and radius (`--radius*`) tokens were added, and every static inline style became a class. Still open: about 170 raw `px`/`rem` values in `styles.css` use literals, not tokens. Converting them would change the layout, so it needs a browser check first.
+20. ~~**Clean up**~~ **Done.** Deleted `src/main.tsx.bak` and the five refactor docs. `README.md` now has the current setup, scripts, and Docker steps.
 
 ## Working agreements for agents
 

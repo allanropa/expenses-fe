@@ -66,16 +66,16 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
         <label>Fecha<input required type="date" value={payDate} onChange={e => setPayDate(e.target.value)} /></label>
         <h4>Líneas de pago</h4>
         {lines.map((line, i) => (
-          <div className="row" key={i} style={{ flexWrap: "wrap", gap: 4 }}>
-            <select value={line.kind} onChange={e => updateLine(i, "kind", e.target.value)} style={{ width: 88 }}>
+          <div className="row line-row" key={i}>
+            <select aria-label="Tipo de línea" value={line.kind} onChange={e => updateLine(i, "kind", e.target.value)} className="line-kind">
               <option value="capital">Abono</option>
               <option value="interes">Interés</option>
               <option value="gasto">Gasto</option>
             </select>
-            <input required type="number" min="0" step="0.01" placeholder="Monto" value={line.amount} onChange={e => updateLine(i, "amount", e.target.value)} style={{ width: 100 }} />
-            {line.kind !== "capital" && <select value={line.category_id} onChange={e => updateLine(i, "category_id", e.target.value)} style={{ width: 130 }}>{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
-            {line.kind !== "capital" && <input placeholder="Descripción" value={line.description} onChange={e => updateLine(i, "description", e.target.value)} style={{ flex: 1 }} />}
-            <button type="button" onClick={() => removeLine(i)} style={{ width: 28 }}>×</button>
+            <input required type="number" min="0" step="0.01" aria-label="Monto" placeholder="Monto" value={line.amount} onChange={e => updateLine(i, "amount", e.target.value)} className="line-amount" />
+            {line.kind !== "capital" && <select aria-label="Categoría" value={line.category_id} onChange={e => updateLine(i, "category_id", e.target.value)} className="line-category">{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+            {line.kind !== "capital" && <input aria-label="Descripción" placeholder="Descripción" value={line.description} onChange={e => updateLine(i, "description", e.target.value)} className="line-description" />}
+            <button type="button" onClick={() => removeLine(i)} className="line-remove">×</button>
           </div>
         ))}
         <button type="button" onClick={addLine}>+ Agregar línea</button>

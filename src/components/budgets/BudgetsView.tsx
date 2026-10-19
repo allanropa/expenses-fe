@@ -30,13 +30,13 @@ function BudgetDetailsContent({ initialId }: { initialId: string }) {
       </div>
       {summary && (
         <>
-          <div className="detail-grid" style={{ marginTop: 8 }}>
+          <div className="detail-grid mt-2">
             <div><small>Período</small><strong>{summary.period_start} a {summary.period_end}</strong></div>
             <div><small>Acumulado</small><strong>{summary.accumulated_budget}</strong></div>
             <div><small>Gastado</small><strong>{summary.actual_spending}</strong></div>
             <div><small>Saldo</small><strong>{summary.balance}</strong></div>
           </div>
-          <div style={{ marginTop: 8 }}>
+          <div className="mt-2">
             <div className="row"><span>Uso ({summary.percentage_used}%)</span><b>{Number(summary.excess) <= 0 ? "Dentro del límite" : `Exceso: ${summary.excess}`}</b></div>
             <div className="budget-progress"><div style={{ width: `${Math.min(Number(summary.percentage_used), 200)}%` }} /></div>
           </div>
