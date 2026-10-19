@@ -1,4 +1,4 @@
-import { useEffect, ReactNode } from "react";
+import { Component, ErrorInfo, useEffect, ReactNode } from "react";
 
 interface ModalProps {
   open: boolean;
@@ -73,4 +73,40 @@ export function ActionMenu({
       </div>
     </details>
   );
+}
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("UI error:", error, info.componentStack);
+  }
+
+  reset = () => {
+    this.setState({ hasError: false });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="card" role="alert">
+          <p>Algo salió mal al mostrar esta sección.</p>
+          <button onClick={this.reset}>Reintentar</button>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
 }

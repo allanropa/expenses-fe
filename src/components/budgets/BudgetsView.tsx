@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { api } from "../../api";
 import type { Budget, Account, Card } from "../../types";
 import { money } from "../../utils/formatters";
+import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
@@ -134,7 +135,7 @@ export function BudgetsView({ csrf }: { csrf: string }) {
     load();
   }
 
-  const totals = budgets.reduce<Record<string, number>>((r, b) => { r[b.currency] = (r[b.currency] ?? 0) + Number(b.target_amount); return r; }, {});
+  const totals = sumByCurrency(budgets, (b) => b.currency, (b) => b.target_amount);
   const periodLabel = (b: Budget) => b.period_type !== "custom" ? ({ daily: "Diario", weekly: "Semanal", monthly: "Mensual" })[b.period_type] ?? b.period_type : `${b.start_date} a ${b.end_date}`;
   const scopeLabel = (b: Budget) => {
     if (b.scope === "account") { const a = accounts.find(x => x.id === b.account_id); return a ? a.name : "Cuenta"; }

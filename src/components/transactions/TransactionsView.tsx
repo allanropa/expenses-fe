@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api } from "../../api";
 import type { Transaction, Account, Category, Card } from "../../types";
 import { money } from "../../utils/formatters";
+import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { ActionMenu } from "../common";
 import { useModal } from "../../hooks";
@@ -120,15 +121,10 @@ export function TransactionsView({ csrf }: { csrf: string }) {
   const cardCurrencies =
     selectedCard?.currencies.map((item) => item.currency) ?? [];
 
-  const totals = transactions.reduce<Record<string, number>>(
-    (result, item) => {
-      if (item.transaction_type === "expense") {
-        result[item.currency] =
-          (result[item.currency] ?? 0) + Number(item.amount);
-      }
-      return result;
-    },
-    {}
+  const totals = sumByCurrency(
+    transactions.filter((item) => item.transaction_type === "expense"),
+    (item) => item.currency,
+    (item) => item.amount
   );
 
   return (

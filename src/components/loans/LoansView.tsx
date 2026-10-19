@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { api } from "../../api";
 import type { Loan, Account, Category } from "../../types";
 import { money } from "../../utils/formatters";
+import { isPositiveAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
@@ -32,21 +33,22 @@ function LoanPaymentPanel({ csrf, loanId, onDone }: { csrf: string; loanId: numb
   function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
   function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
   function removeLine(i: number) { setLines(lines.filter((_, idx) => idx !== i)); }
-  const capitalTotal = lines.filter(l => l.kind === "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
-  const interestTotal = lines.filter(l => l.kind === "interes").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const capitalTotal = sumAmounts(lines.filter(l => l.kind === "capital").map(l => l.amount));
+  const interestTotal = sumAmounts(lines.filter(l => l.kind === "interes").map(l => l.amount));
+  const paymentTotal = sumAmounts([capitalTotal, interestTotal]);
   const expenseCategories = categories.filter(c => c.kind !== "income");
   const matching = accounts.filter(a => loan && a.currency === loan.currency);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!source || (capitalTotal + interestTotal) <= 0) return;
+    if (!source || !isPositiveAmount(paymentTotal)) return;
     const extras = lines.filter(l => l.kind === "gasto" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || "Cargo adicional" }));
     await api(`/api/loans/${loanId}/payments`, {
       method: "POST", csrf,
       body: JSON.stringify({
         source_account_id: Number(source),
         payment_date: payDate,
-        scheduled_amount: String(capitalTotal + interestTotal),
-        interest_paid: interestTotal > 0 ? String(interestTotal) : undefined,
+        scheduled_amount: paymentTotal,
+        interest_paid: isPositiveAmount(interestTotal) ? interestTotal : undefined,
         extra_charges: extras.length > 0 ? extras : undefined,
       }),
     });
@@ -74,8 +76,8 @@ function LoanPaymentPanel({ csrf, loanId, onDone }: { csrf: string; loanId: numb
           </div>
         ))}
         <button type="button" onClick={addLine}>+ Agregar línea</button>
-        {(capitalTotal + interestTotal) > 0 && <p><strong>Total cuota: {money(capitalTotal + interestTotal, loan.currency)}</strong> (abono {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)})</p>}
-        <button disabled={!source || (capitalTotal + interestTotal) <= 0}>Registrar pago</button>
+        {isPositiveAmount(paymentTotal) && <p><strong>Total cuota: {money(paymentTotal, loan.currency)}</strong> (abono {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)})</p>}
+        <button disabled={!source || !isPositiveAmount(paymentTotal)}>Registrar pago</button>
       </form>
     </div>
   );
@@ -213,7 +215,7 @@ export function LoansView({ csrf }: { csrf: string }) {
     load();
   }
 
-  const totals = loans.reduce<Record<string, number>>((r, l) => { r[l.currency] = (r[l.currency] ?? 0) + Number(l.outstanding_principal); return r; }, {});
+  const totals = sumByCurrency(loans, (l) => l.currency, (l) => l.outstanding_principal);
 
   return (
     <>

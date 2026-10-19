@@ -88,7 +88,9 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - `api()` throws `Error` with the backend's `detail` message. Use `error.message` for user-facing text.
 
 ### Shared utilities and hooks (use these, don't reimplement)
-- **Money display:** `money(amount, currency)` from `utils/formatters.ts`. API numbers may arrive as strings, so convert with `Number(...)` before arithmetic. For sums of money, see the precision note under Improvements.
+- **Money display:** `money(amount, currency)` from `utils/formatters.ts`. It accepts decimal strings.
+- **Money math:** never sum or multiply amounts with `Number()` or floats. Use `utils/amounts.ts`: `sumAmounts([...])`, `sumByCurrency(items, currencyOf, amountOf)`, `multiplyAmount(amount, rate, decimals)`, and `isPositiveAmount(x)` for `> 0` checks. Amounts stay decimal strings end to end, because the API uses decimal strings. Use `Number()` only for IDs.
+- **Environment:** `VITE_API_URL` is validated by `checkEnv()` in `src/env.ts`. `main.tsx` shows the error message instead of the app if the value is invalid.
 - **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render (see CODE_STRUCTURE.md).
 - **Modals:** `useModal()` + `<Modal open onClose title>`.
 - **Forms:** `useForm()` from `hooks/index.ts`. Do not write local form helpers.
@@ -129,10 +131,10 @@ Done: scripts (`typecheck`, `lint`, `format`, `format:check`, `test:watch`, `che
 Still open: commit `package-lock.json` (ask first).
 
 ### P2: Reliability and safety
-6. **Add a CI workflow** (GitHub Actions or equivalent) that runs `npm ci`, typecheck, lint, test, and build on every pull request.
-7. **Add an error boundary** at the app root and around each view. One failing view should not blank the whole app.
-8. **Finance math without floats.** Summing `number`s in JavaScript can drift (e.g. `0.1 + 0.2`). Either keep amounts as integer minor units (cents) or use a decimal library, and format only at display time.
-9. **Add env validation** at startup (a small check or `zod`) so a missing or malformed `VITE_API_URL` fails with a clear message.
+6. ~~**Add a CI workflow**~~ **Skipped by decision.** This is a personal project, so no CI is needed. Do not suggest it again unless the user asks.
+7. ~~**Add an error boundary**~~ **Done.** `ErrorBoundary` in `src/components/common/index.tsx` wraps the app root and the current view (`key={view}` resets it on navigation). Errors in event handlers and async code are not caught by it; handle those in the component.
+8. ~~**Finance math without floats**~~ **Done (decimal strings, not cents).** The API sends amounts as decimal strings, so amounts stay strings. `utils/amounts.ts` does exact BigInt arithmetic for all totals and payment sums. Switching the API to integer cents would be a backend change; do not do it from the frontend.
+9. ~~**Add env validation**~~ **Done.** `checkEnv()` in `src/env.ts` runs before render and rejects a malformed `VITE_API_URL` with a Spanish message. Tests are in `src/env.test.ts`.
 10. **Make the API contract explicit.** If the backend publishes an OpenAPI schema, generate types from it (e.g. `openapi-typescript`) instead of hand-writing them in `types.ts`. Remove the remaining `any`s this way.
 
 ### P3: Architecture
@@ -191,4 +193,4 @@ The files above are the source of truth. Edit them directly; do not copy their c
 - "Find every call site of `/api/accounts` and list which components depend on the response shape."
 - "Use the reviewer subagent to review my current changes."
 - "Remove the `.catch(() => undefined)` calls in `AccountsView.tsx` and show errors inline instead."
-- "Start P2 item 6: add a GitHub Actions workflow that runs `npm ci`, `npm run check`, and `npm run build`. Ask before creating it."
+- "Start P2 item 7: add an error boundary around the app root and each view. Ask before creating it."

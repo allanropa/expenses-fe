@@ -3,6 +3,7 @@ import { api } from "../../api";
 import type { Card, Account, Purchase, Category } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
+import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
 import { Modal, ActionMenu } from "../common";
 import { useModal } from "../../hooks";
 
@@ -25,16 +26,16 @@ function CardPaymentPanel({ csrf, cardId, onDone }: { csrf: string; cardId: numb
   function addLine() { setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]); }
   function updateLine(i: number, field: keyof PaymentLine, value: string) { const copy = [...lines]; copy[i] = { ...copy[i], [field]: value }; setLines(copy); }
   function removeLine(i: number) { setLines(lines.filter((_, idx) => idx !== i)); }
-  const capitalTotal = lines.filter(l => l.kind === "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
-  const extraTotal = lines.filter(l => l.kind !== "capital").reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const capitalTotal = sumAmounts(lines.filter(l => l.kind === "capital").map(l => l.amount));
+  const extraTotal = sumAmounts(lines.filter(l => l.kind !== "capital").map(l => l.amount));
   const expenseCategories = categories.filter(c => c.kind !== "income");
   const selectedAccount = accounts.find(a => a.id === Number(source));
   const isMultiCurrency = Boolean(selectedAccount && selectedAccount.currency !== currency);
   const sourceDecimals = selectedAccount?.currency === "COP" ? 0 : 2;
-  const sourceAmount = isMultiCurrency && rate ? String((capitalTotal * Number(rate)).toFixed(sourceDecimals)) : "";
+  const sourceAmount = isMultiCurrency && rate ? multiplyAmount(capitalTotal, rate, sourceDecimals) : "";
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!source || capitalTotal <= 0) return;
+    if (!source || !isPositiveAmount(capitalTotal)) return;
     const extras = lines.filter(l => l.kind !== "capital" && l.amount).map(l => ({ amount: l.amount, category_id: Number(l.category_id) || expenseCategories[0]?.id, description: l.description || (l.kind === "interes" ? "Interés" : "Cargo adicional") }));
     await api(`/api/cards/${cardId}/payments`, {
       method: "POST", csrf,
@@ -42,7 +43,7 @@ function CardPaymentPanel({ csrf, cardId, onDone }: { csrf: string; cardId: numb
       body: JSON.stringify({
         card_id: cardId,
         source_account_id: Number(source),
-        obligation_amount: String(capitalTotal),
+        obligation_amount: capitalTotal,
         obligation_currency: currency,
         source_amount: isMultiCurrency ? sourceAmount : undefined,
         exchange_rate: isMultiCurrency ? rate : undefined,
@@ -78,11 +79,11 @@ function CardPaymentPanel({ csrf, cardId, onDone }: { csrf: string; cardId: numb
           </div>
         ))}
         <button type="button" onClick={addLine}>+ Agregar línea</button>
-        {capitalTotal > 0 && <p><strong>Total abono: {money(capitalTotal, currency)}</strong></p>}
-        {extraTotal > 0 && <p><strong>Cargos adicionales: {money(extraTotal, currency)}</strong></p>}
-        {isMultiCurrency && rate && <p><strong>Total a descontar ({selectedAccount!.currency}): {money((capitalTotal + extraTotal) * Number(rate), selectedAccount!.currency)}</strong></p>}
-        {!isMultiCurrency && (capitalTotal > 0 || extraTotal > 0) && <p><strong>Total a pagar: {money(capitalTotal + extraTotal, currency)}</strong></p>}
-        <button disabled={!source || capitalTotal <= 0 || (isMultiCurrency && !rate)}>Registrar pago</button>
+        {isPositiveAmount(capitalTotal) && <p><strong>Total abono: {money(capitalTotal, currency)}</strong></p>}
+        {isPositiveAmount(extraTotal) && <p><strong>Cargos adicionales: {money(extraTotal, currency)}</strong></p>}
+        {isMultiCurrency && rate && <p><strong>Total a descontar ({selectedAccount!.currency}): {money(multiplyAmount(sumAmounts([capitalTotal, extraTotal]), rate, sourceDecimals), selectedAccount!.currency)}</strong></p>}
+        {!isMultiCurrency && (isPositiveAmount(capitalTotal) || isPositiveAmount(extraTotal)) && <p><strong>Total a pagar: {money(sumAmounts([capitalTotal, extraTotal]), currency)}</strong></p>}
+        <button disabled={!source || !isPositiveAmount(capitalTotal) || (isMultiCurrency && !rate)}>Registrar pago</button>
       </form>
     </div>
   );
@@ -96,7 +97,7 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
     api<Purchase[]>(`/api/cards/${cardId}/purchases`).then(setPurchases).catch(() => undefined);
   }, [cardId]);
   if (!card) return <p className="muted">Cargando detalle...</p>;
-  const monthlyEstimate = purchases.reduce((s, p) => s + (p.installments[0] ? Number(p.installments[0].estimated_total) : Number(p.amount)), 0);
+  const monthlyEstimate = sumAmounts(purchases.map(p => p.installments[0] ? p.installments[0].estimated_total : p.amount));
   return (
     <>
       <div className="detail-grid">
@@ -205,7 +206,7 @@ export function CardsView({ csrf }: { csrf: string }) {
     load();
   }
 
-  const totals = cards.reduce<Record<string, number>>((r, c) => { c.currencies.forEach((item) => { r[item.currency] = (r[item.currency] ?? 0) + Number(item.outstanding_debt); }); return r; }, {});
+  const totals = sumByCurrency(cards.flatMap(c => c.currencies), item => item.currency, item => item.outstanding_debt);
 
   return (
     <>

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api } from "../../api";
 import type { Account } from "../../types";
 import { money } from "../../utils/formatters";
+import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
 import { useForm, useModal } from "../../hooks";
@@ -179,14 +180,10 @@ export function AccountsView({ csrf }: { csrf: string }) {
     load();
   }
 
-  const totals = accounts.reduce<Record<string, number>>(
-    (result, account) => {
-      result[account.currency] =
-        (result[account.currency] ?? 0) +
-        Number(account.current_balance);
-      return result;
-    },
-    {}
+  const totals = sumByCurrency(
+    accounts,
+    (account) => account.currency,
+    (account) => account.current_balance
   );
 
   return (

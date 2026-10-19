@@ -10,6 +10,8 @@ import { SettingsView } from "./components/settings/SettingsView";
 import { CardsView } from "./components/cards/CardsView";
 import { LoansView } from "./components/loans/LoansView";
 import { BudgetsView } from "./components/budgets/BudgetsView";
+import { ErrorBoundary } from "./components/common";
+import { checkEnv } from "./env";
 import { getInitialTheme, applyTheme } from "./theme";
 import "./theme.css";
 import "./styles.css";
@@ -123,7 +125,7 @@ function App() {
             </nav>
           </div>
         )}
-        {views[view]}
+        <ErrorBoundary key={view}>{views[view]}</ErrorBoundary>
       </main>
     </div>
   );
@@ -131,8 +133,18 @@ function App() {
 
 applyTheme(getInitialTheme());
 
+const envCheck = checkEnv(import.meta.env);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {envCheck.ok ? (
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    ) : (
+      <section className="card" role="alert">
+        <p>{envCheck.message}</p>
+      </section>
+    )}
   </StrictMode>
 );
