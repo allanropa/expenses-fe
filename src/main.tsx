@@ -19,6 +19,7 @@ type View = "dashboard" | "transactions" | "accounts" | "cards" | "loans" | "bud
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [view, setView] = useState<View>("dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Fixed: Proper error handling and only fetch on mount
   useEffect(() => {
@@ -85,11 +86,43 @@ function App() {
       </aside>
       <main className="content">
         <div className="mobile-top">
+          <button
+            className="hamburger"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Abrir menú"
+          >
+            ☰
+          </button>
           <strong>Control</strong>
           <button className="link-button" onClick={logout}>
             Salir
           </button>
         </div>
+        {menuOpen && (
+          <div className="mobile-menu">
+            <button
+              className="mobile-menu-close"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Cerrar menú"
+            >
+              ×
+            </button>
+            <nav>
+              {navigation.map(([key, label]) => (
+                <button
+                  className={view === key ? "nav-item active" : "nav-item"}
+                  key={key}
+                  onClick={() => {
+                    setView(key);
+                    setMenuOpen(false);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
         {views[view]}
       </main>
     </div>
