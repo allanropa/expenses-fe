@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permissions": [
+    { "action": "shell", "resource": "npm install*", "effect": "ask" },
+    { "action": "shell", "resource": "npm i *", "effect": "ask" },
+    { "action": "shell", "resource": "git commit*", "effect": "ask" },
+    { "action": "shell", "resource": "git push*", "effect": "ask" },
+    { "action": "shell", "resource": "rm *", "effect": "ask" },
+    { "action": "read", "resource": ".env.local", "effect": "deny" },
+    { "action": "read", "resource": ".env", "effect": "deny" },
+    { "action": "read", "resource": ".env.*.local", "effect": "deny" },
+  ],
+  "watcher": {
+    "ignore": ["dist/**", "coverage/**"],
+  },
+  "commands": {
+    "check": {
+      "description": "Run typecheck, lint, and tests",
+      "template": "Run `npm run check` (typecheck, lint, tests). Report results. For each failure, give the file and line, and say whether it was in a file changed in this session.",
+    },
+  },
+}

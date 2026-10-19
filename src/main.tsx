@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState, ReactNode, FormEvent } from "react";
+import { StrictMode, useEffect, useState, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { api } from "./api";
 import type { Session } from "./types";

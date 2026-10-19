@@ -1,7 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import { api } from "../../api";
 import type { Session } from "../../types";
-import { money } from "../../utils/formatters";
 import { getInitialTheme, applyTheme, type Theme } from "../../theme";
 
 interface SettingsViewProps {

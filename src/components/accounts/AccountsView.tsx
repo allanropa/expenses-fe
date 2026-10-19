@@ -4,7 +4,7 @@ import type { Account } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
 import { Modal, ActionMenu } from "../common";
-import { useModal } from "../../hooks";
+import { useForm, useModal } from "../../hooks";
 
 interface AccountDetailsContentProps {
   initialId: string;
@@ -157,7 +157,7 @@ export function AccountsView({ csrf }: { csrf: string }) {
   const configModal = useModal();
   const [detailId, setDetailId] = useState<number | null>(null);
   const [configId, setConfigId] = useState<number | null>(null);
-  const [form, setForm] = useState({
+  const { form, setForm } = useForm({
     name: "",
     currency: "COP",
     account_type: "checking",
@@ -317,10 +317,4 @@ export function AccountsView({ csrf }: { csrf: string }) {
       </Modal>
     </>
   );
-}
-
-// Helper to create form using useForm hook
-function useForm<T extends Record<string, unknown>>(initialState: T) {
-  const [form, setForm] = useState(initialState);
-  return { form, setForm };
 }

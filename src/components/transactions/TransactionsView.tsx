@@ -3,7 +3,7 @@ import { api } from "../../api";
 import type { Transaction, Account, Category, Card } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
-import { Modal, ActionMenu } from "../common";
+import { ActionMenu } from "../common";
 import { useModal } from "../../hooks";
 
 export function TransactionsView({ csrf }: { csrf: string }) {
