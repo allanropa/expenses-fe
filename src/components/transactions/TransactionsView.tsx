@@ -1,122 +1,107 @@
-import { FormEvent, useEffect, useState } from "react";
-import { accountsApi } from "../../resources/accounts";
-import { cardsApi } from "../../resources/cards";
-import { categoriesApi } from "../../resources/categories";
-import { transactionsApi } from "../../resources/transactions";
-import type { Transaction, Account, Category, Card } from "../../types";
+import { FormEvent, useState } from "react";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu } from "../common";
-import { useModal } from "../../hooks";
-import { useSession } from "../../session";
+import { ActionMenu, ErrorMessage } from "../common";
+import {
+  useAccounts,
+  useAddCardPurchase,
+  useCards,
+  useCategories,
+  useCreateTransaction,
+  useDeleteTransaction,
+  useTransactions,
+} from "../../queries";
+
+type FormState = {
+  kind: string;
+  transaction_type: string;
+  amount: string;
+  currency: string;
+  transaction_date: string;
+  account_id: string;
+  card_id: string;
+  category_id: string;
+  installments_count: string;
+  description: string;
+};
 
 export function TransactionsView() {
-  const { csrf_token: csrf } = useSession();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const addModal = useModal();
+  const transactions = useTransactions();
+  const accounts = useAccounts();
+  const cards = useCards();
+  const categories = useCategories();
+  const createTransaction = useCreateTransaction();
+  const addPurchase = useAddCardPurchase();
+  const removeTransaction = useDeleteTransaction();
 
-  const [form, setForm] = useState({
+  const accountList = accounts.data ?? [];
+  const cardList = cards.data ?? [];
+  const categoryList = categories.data ?? [];
+  const list = transactions.data ?? [];
+
+  const defaults: FormState = {
     kind: "debit",
     transaction_type: "expense",
     amount: "",
-    currency: "COP",
+    currency: accountList[0]?.currency ?? "COP",
     transaction_date: toISODateString(),
-    account_id: "",
-    card_id: "",
-    category_id: "",
+    account_id: accountList[0] ? String(accountList[0].id) : "",
+    card_id: cardList[0] ? String(cardList[0].id) : "",
+    category_id: (() => {
+      const expenseCategory = categoryList.find((c) => c.kind !== "income");
+      return expenseCategory ? String(expenseCategory.id) : "";
+    })(),
     installments_count: "1",
     description: "",
-  });
-
-  const load = async () => {
-    const [trans, accts, cds, cats] = await Promise.all([
-      transactionsApi.list(),
-      accountsApi.list(),
-      cardsApi.list(),
-      categoriesApi.list(),
-    ]);
-
-    setTransactions(trans);
-    setAccounts(accts);
-    setCards(cds);
-    setCategories(cats);
-
-    // Initialize form with first account/card/category if available
-    if (accts[0]) {
-      setForm((prev) => ({
-        ...prev,
-        account_id: String(accts[0].id),
-        currency: accts[0].currency,
-      }));
-    }
-    if (cds[0]) {
-      setForm((prev) => ({
-        ...prev,
-        card_id: String(cds[0].id),
-        currency: cds[0].currencies[0]?.currency ?? prev.currency,
-      }));
-    }
-    const expenseCategory = cats.find((c) => c.kind !== "income");
-    if (expenseCategory) {
-      setForm((prev) => ({
-        ...prev,
-        category_id: String(expenseCategory.id),
-      }));
-    }
   };
+  const [draft, setDraft] = useState<FormState | null>(null);
+  const form = draft ?? defaults;
+  const setForm = (next: FormState) => setDraft(next);
 
-  // Fixed: Load all data once on mount
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function submit(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault();
+    const onSuccess = () => setDraft({ ...form, amount: "", description: "" });
 
     if (form.kind === "credit") {
-      await cardsApi.addPurchase(csrf, form.card_id, {
-        card_id: Number(form.card_id),
-        category_id: Number(form.category_id),
-        amount: form.amount,
-        currency: form.currency,
-        purchase_date: form.transaction_date,
-        installments_count: Number(form.installments_count),
-        description: form.description,
-      });
+      addPurchase.mutate(
+        {
+          id: form.card_id,
+          body: {
+            card_id: Number(form.card_id),
+            category_id: Number(form.category_id),
+            amount: form.amount,
+            currency: form.currency,
+            purchase_date: form.transaction_date,
+            installments_count: Number(form.installments_count),
+            description: form.description,
+          },
+        },
+        { onSuccess },
+      );
     } else {
-      await transactionsApi.create(csrf, {
-        transaction_type: form.transaction_type,
-        amount: form.amount,
-        currency: form.currency,
-        transaction_date: form.transaction_date,
-        account_id: Number(form.account_id),
-        category_id: Number(form.category_id),
-        description: form.description,
-      });
+      createTransaction.mutate(
+        {
+          transaction_type: form.transaction_type,
+          amount: form.amount,
+          currency: form.currency,
+          transaction_date: form.transaction_date,
+          account_id: Number(form.account_id),
+          category_id: Number(form.category_id),
+          description: form.description,
+        },
+        { onSuccess },
+      );
     }
-
-    addModal.closeModal();
-    setForm((prev) => ({ ...prev, amount: "", description: "" }));
-    load();
   }
 
-  async function remove(id: number) {
-    await transactionsApi.remove(csrf, id);
-    load();
-  }
-
-  const selectedCard = cards.find((c) => c.id === Number(form.card_id));
-  const cardCurrencies =
-    selectedCard?.currencies.map((item) => item.currency) ?? [];
+  const selectedCard = cardList.find((c) => c.id === Number(form.card_id));
+  const cardCurrencies = selectedCard?.currencies.map((item) => item.currency) ?? [];
 
   const totals = sumByCurrency(
-    transactions.filter((item) => item.transaction_type === "expense"),
+    list.filter((item) => item.transaction_type === "expense"),
     (item) => item.currency,
-    (item) => item.amount
+    (item) => item.amount,
   );
 
   return (
@@ -129,7 +114,7 @@ export function TransactionsView() {
       </header>
 
       <section className="summary-strip">
-        <strong>{transactions.length} movimientos</strong>
+        <strong>{list.length} movimientos</strong>
         {Object.entries(totals).map(([currency, amount]) => (
           <span key={currency}>
             Gastos {currency}: {money(amount, currency)}
@@ -140,6 +125,15 @@ export function TransactionsView() {
       <div className="split-grid">
         <section className="card">
           <h3>Agregar movimiento</h3>
+          <ErrorMessage
+            error={
+              createTransaction.error ??
+              addPurchase.error ??
+              accounts.error ??
+              cards.error ??
+              categories.error
+            }
+          />
           <form className="stack" onSubmit={submit}>
             <label>
               Medio
@@ -150,8 +144,12 @@ export function TransactionsView() {
                   setForm({
                     ...form,
                     kind: kind,
-                    transaction_type:
-                      kind === "credit" ? "expense" : form.transaction_type,
+                    currency:
+                      kind === "credit"
+                        ? (selectedCard?.currencies[0]?.currency ?? form.currency)
+                        : (accountList.find((a) => a.id === Number(form.account_id))?.currency ??
+                          form.currency),
+                    transaction_type: kind === "credit" ? "expense" : form.transaction_type,
                   });
                 }}
               >
@@ -183,9 +181,7 @@ export function TransactionsView() {
                     required
                     value={form.account_id}
                     onChange={(event) => {
-                      const account = accounts.find(
-                        (a) => a.id === Number(event.target.value)
-                      );
+                      const account = accountList.find((a) => a.id === Number(event.target.value));
                       setForm({
                         ...form,
                         account_id: event.target.value,
@@ -193,7 +189,7 @@ export function TransactionsView() {
                       });
                     }}
                   >
-                    {accounts.map((account) => (
+                    {accountList.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name} ({account.currency})
                       </option>
@@ -209,19 +205,15 @@ export function TransactionsView() {
                     required
                     value={form.card_id}
                     onChange={(event) => {
-                      const card = cards.find(
-                        (c) => c.id === Number(event.target.value)
-                      );
+                      const card = cardList.find((c) => c.id === Number(event.target.value));
                       setForm({
                         ...form,
                         card_id: event.target.value,
-                        currency:
-                          card?.currencies[0]?.currency ??
-                          form.currency,
+                        currency: card?.currencies[0]?.currency ?? form.currency,
                       });
                     }}
                   >
-                    {cards.map((card) => (
+                    {cardList.map((card) => (
                       <option key={card.id} value={card.id}>
                         {card.name}
                       </option>
@@ -270,9 +262,7 @@ export function TransactionsView() {
                 min="0"
                 step="0.01"
                 value={form.amount}
-                onChange={(event) =>
-                  setForm({ ...form, amount: event.target.value })
-                }
+                onChange={(event) => setForm({ ...form, amount: event.target.value })}
               />
             </label>
 
@@ -288,7 +278,7 @@ export function TransactionsView() {
                   })
                 }
               >
-                {categories.map((category) => (
+                {categoryList.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
@@ -330,10 +320,14 @@ export function TransactionsView() {
 
         <section className="card">
           <h3>Movimientos recientes</h3>
-          {transactions.length === 0 ? (
+          {transactions.isPending && !transactions.error ? (
+            <p className="muted">Cargando movimientos...</p>
+          ) : transactions.error ? (
+            <ErrorMessage error={transactions.error} />
+          ) : list.length === 0 ? (
             <p className="muted">No hay movimientos registrados.</p>
           ) : (
-            transactions.map((item) => (
+            list.map((item) => (
               <div className="list-item" key={item.id}>
                 <div>
                   <strong>
@@ -344,13 +338,7 @@ export function TransactionsView() {
                     {item.transaction_date} · {item.currency}
                   </small>
                 </div>
-                <b
-                  className={
-                    item.transaction_type === "income"
-                      ? "positive"
-                      : "negative"
-                  }
-                >
+                <b className={item.transaction_type === "income" ? "positive" : "negative"}>
                   {item.transaction_type === "income" ? "+" : "-"}
                   {money(item.amount, item.currency)}
                   {item.original_amount != null && item.original_currency && (
@@ -360,7 +348,7 @@ export function TransactionsView() {
                 {item.transaction_type !== "payment" && (
                   <ActionMenu
                     onDetails={() => {}}
-                    onDelete={() => remove(item.id)}
+                    onDelete={() => removeTransaction.mutate(item.id)}
                   />
                 )}
               </div>

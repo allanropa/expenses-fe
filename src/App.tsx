@@ -1,16 +1,33 @@
-import { useEffect, useState, ReactNode } from "react";
-import { authApi } from "./resources/auth";
-import type { Session } from "./types";
+import { lazy, Suspense, useState, ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Auth } from "./components/auth/Auth";
-import { DashboardView } from "./components/dashboard/DashboardView";
-import { AccountsView } from "./components/accounts/AccountsView";
-import { TransactionsView } from "./components/transactions/TransactionsView";
-import { SettingsView } from "./components/settings/SettingsView";
-import { CardsView } from "./components/cards/CardsView";
-import { LoansView } from "./components/loans/LoansView";
-import { BudgetsView } from "./components/budgets/BudgetsView";
-import { ErrorBoundary } from "./components/common";
+import { ErrorBoundary, ErrorMessage } from "./components/common";
+import { keys, useLogout, useSessionQuery } from "./queries";
 import { SessionProvider } from "./session";
+
+const DashboardView = lazy(() =>
+  import("./components/dashboard/DashboardView").then((m) => ({ default: m.DashboardView })),
+);
+const AccountsView = lazy(() =>
+  import("./components/accounts/AccountsView").then((m) => ({ default: m.AccountsView })),
+);
+const TransactionsView = lazy(() =>
+  import("./components/transactions/TransactionsView").then((m) => ({
+    default: m.TransactionsView,
+  })),
+);
+const SettingsView = lazy(() =>
+  import("./components/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const CardsView = lazy(() =>
+  import("./components/cards/CardsView").then((m) => ({ default: m.CardsView })),
+);
+const LoansView = lazy(() =>
+  import("./components/loans/LoansView").then((m) => ({ default: m.LoansView })),
+);
+const BudgetsView = lazy(() =>
+  import("./components/budgets/BudgetsView").then((m) => ({ default: m.BudgetsView })),
+);
 
 type View = "dashboard" | "transactions" | "accounts" | "cards" | "loans" | "budgets" | "settings";
 
@@ -25,23 +42,18 @@ const navigation: [View, string][] = [
 ];
 
 export function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const queryClient = useQueryClient();
+  const session = useSessionQuery();
   const [view, setView] = useState<View>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  const logout = useLogout(session.data?.csrf_token ?? "");
 
-  // Fixed: Proper error handling and only fetch on mount
-  useEffect(() => {
-    authApi
-      .session()
-      .then(setSession)
-      .catch(() => {
-        // User is not authenticated
-      });
-  }, []);
+  if (session.isPending) return <p className="muted">Cargando...</p>;
+  if (!session.data) {
+    return <Auth onSession={(next) => queryClient.setQueryData(keys.session, next)} />;
+  }
 
-  if (!session) return <Auth onSession={setSession} />;
-
-  const activeSession = session;
+  const activeSession = session.data;
 
   const views: Record<View, ReactNode> = {
     dashboard: <DashboardView />,
@@ -52,11 +64,6 @@ export function App() {
     budgets: <BudgetsView />,
     settings: <SettingsView />,
   };
-
-  async function logout() {
-    await authApi.logout(activeSession.csrf_token);
-    setSession(null);
-  }
 
   return (
     <SessionProvider session={activeSession}>
@@ -78,7 +85,8 @@ export function App() {
               </button>
             ))}
           </nav>
-          <button className="link-button sidebar-exit" onClick={logout}>
+          <ErrorMessage error={logout.error} />
+          <button className="link-button sidebar-exit" onClick={() => logout.mutate()}>
             Cerrar sesión
           </button>
         </aside>
@@ -88,7 +96,7 @@ export function App() {
               ☰
             </button>
             <strong>Control</strong>
-            <button className="link-button" onClick={logout}>
+            <button className="link-button" onClick={() => logout.mutate()}>
               Salir
             </button>
           </div>
@@ -118,7 +126,9 @@ export function App() {
               </nav>
             </div>
           )}
-          <ErrorBoundary key={view}>{views[view]}</ErrorBoundary>
+          <ErrorBoundary key={view}>
+            <Suspense fallback={<p className="muted">Cargando...</p>}>{views[view]}</Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </SessionProvider>

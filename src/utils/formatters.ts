@@ -13,12 +13,14 @@ export function money(value: string | number, currency: string): string {
  * Map period type to readable label
  */
 export function periodLabel(type: string): string {
-  return {
-    daily: "Diario",
-    weekly: "Semanal",
-    monthly: "Mensual",
-    custom: "Personalizado",
-  }[type] ?? type;
+  return (
+    {
+      daily: "Diario",
+      weekly: "Semanal",
+      monthly: "Mensual",
+      custom: "Personalizado",
+    }[type] ?? type
+  );
 }
 
 /**

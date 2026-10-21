@@ -1,36 +1,26 @@
-import { useEffect, useState, FormEvent } from "react";
-import { authApi } from "../../resources/auth";
-import { settingsApi } from "../../resources/settings";
+import { FormEvent, useState } from "react";
+import { ErrorMessage } from "../common";
+import { useSettings, useUpdateProfile, useUpdateSettings } from "../../queries";
 import { getInitialTheme, applyTheme, type Theme } from "../../theme";
 import { useSession } from "../../session";
 
 export function SettingsView() {
-  const { csrf_token: csrf, user } = useSession();
+  const { user } = useSession();
+  const settings = useSettings();
+  const saveProfile = useUpdateProfile();
+  const saveSettings = useUpdateSettings();
   const [name, setName] = useState(user.display_name);
-  const [currency, setCurrency] = useState("COP");
-  const [timezone, setTimezone] = useState("America/Bogota");
+  const [draft, setDraft] = useState<{ currency?: string; timezone?: string }>({});
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
+  const currency = draft.currency ?? settings.data?.reporting_currency ?? "COP";
+  const timezone = draft.timezone ?? settings.data?.timezone ?? "America/Bogota";
+  const setCurrency = (value: string) => setDraft((prev) => ({ ...prev, currency: value }));
+  const setTimezone = (value: string) => setDraft((prev) => ({ ...prev, timezone: value }));
 
-  // Fixed: Proper loading of initial settings
-  useEffect(() => {
-    settingsApi.get()
-      .then((data) => {
-        setCurrency(data.reporting_currency);
-        setTimezone(data.timezone);
-      })
-      .catch(() => {
-        // Use defaults
-      });
-  }, []);
-
-  async function save(event: FormEvent) {
+  function save(event: FormEvent) {
     event.preventDefault();
-
-    // Save profile and settings in parallel
-    await Promise.all([
-      authApi.updateProfile(csrf, { display_name: name }),
-      settingsApi.update(csrf, { reporting_currency: currency, timezone }),
-    ]);
+    saveProfile.mutate({ display_name: name });
+    saveSettings.mutate({ reporting_currency: currency, timezone });
   }
 
   return (
@@ -39,21 +29,16 @@ export function SettingsView() {
       <h2>Configuración</h2>
       <p className="muted">{user.email}</p>
 
+      <ErrorMessage error={settings.error ?? saveProfile.error ?? saveSettings.error} />
       <form className="stack settings-form" onSubmit={save}>
         <label>
           Nombre
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+          <input value={name} onChange={(event) => setName(event.target.value)} />
         </label>
 
         <label>
           Moneda de reportes
-          <select
-            value={currency}
-            onChange={(event) => setCurrency(event.target.value)}
-          >
+          <select value={currency} onChange={(event) => setCurrency(event.target.value)}>
             <option>COP</option>
             <option>USD</option>
           </select>
@@ -61,12 +46,7 @@ export function SettingsView() {
 
         <label>
           Zona horaria
-          <input
-            value={timezone}
-            onChange={(event) =>
-              setTimezone(event.target.value)
-            }
-          />
+          <input value={timezone} onChange={(event) => setTimezone(event.target.value)} />
         </label>
 
         <label>

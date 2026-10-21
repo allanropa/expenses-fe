@@ -1,20 +1,12 @@
 import { useState, useCallback } from "react";
 
 /**
- * Hook for managing form state with reset capability
+ * Hook for managing form state
  */
 export function useForm<T extends Record<string, unknown>>(initialState: T) {
   const [form, setForm] = useState(initialState);
 
-  const updateField = useCallback((field: keyof T, value: unknown) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const reset = useCallback(() => {
-    setForm(initialState);
-  }, [initialState]);
-
-  return { form, setForm, updateField, reset };
+  return { form, setForm };
 }
 
 /**

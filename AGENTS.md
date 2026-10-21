@@ -24,8 +24,7 @@ Views cover accounts, transactions (movimientos), cards, loans, budgets, dashboa
 | All checks | `npm run check` (typecheck + lint + tests) |
 | Production build | `npm run build` (`tsc -b` + `vite build`, outputs `dist/`) |
 
-Before reporting a task as done, run `npm run check` and `npm run build`. `check` must have 0 errors. Warnings are existing debt; do not add new ones.
-Prettier is configured but not enforced yet: 17 existing files are not formatted. Format only the files you change.
+Before reporting a task as done, run `npm run check` and `npm run build`. `check` covers typecheck, lint, Prettier (`format:check`), and tests. It must pass with no warnings.
 
 ## Environment
 
@@ -44,7 +43,9 @@ src/
   session.tsx           SessionProvider + useSession() (csrf_token and user)
   env.ts                checkEnv(): validates VITE_API_URL before render
   api.ts                The ONLY fetch wrapper. Base URL resolution, credentials, CSRF, error parsing
-  resources/*.ts        One module per backend resource (accountsApi, cardsApi, ...). Components call these
+  resources/*.ts        One module per backend resource (accountsApi, cardsApi, ...). Only queries.ts calls these
+  queries.ts            TanStack Query hooks: a read hook per resource and a write hook per mutation (invalidates related keys)
+  queryClient.ts        QueryClient factory (retries, focus refetch)
   types.ts              Shared API types (Session, Account, ...)
   theme.ts, *.css       Theme switching; plain CSS with class names (no Tailwind/CSS-in-JS)
   utils/formatters.ts   money(), periodLabel(), toISODateString()
@@ -85,12 +86,12 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - To add an endpoint, add a function to the resource module. Put the `Idempotency-Key` header there for create-style POSTs. Use `src/resources/*.test.ts` to check the method, URL, and headers.
 - Pass `csrf` on every mutating request (POST, PATCH, DELETE).
 - Load independent data in parallel with `Promise.all`, not sequential awaits.
-- Use `useEffect` with an explicit dependency array. Use `[]` for mount-only loads.
+- Do not load data in `useEffect`. Read with the `useQuery` hooks in `src/queries.ts`. Derive form defaults from query data (a draft state plus the derived value, or a keyed child form), not by copying data into state in an effect.
 - Follow the existing `Idempotency-Key` pattern (`crypto.randomUUID()`) for money-moving or create-style POSTs where the backend supports it.
-- After a successful mutation, refresh the affected data (e.g. call the `load()` function) and close any modal.
+- Write with the `useMutation` hooks in `src/queries.ts`. They invalidate the related keys on success, so there is no manual reload. Close the modal in the mutation's `onSuccess`, and show `mutation.error` inside the modal with `<ErrorMessage>`.
 
 ### Error handling
-- Do not add new `.catch(() => undefined)`. Surface failures to the user (inline message) or at least `console.error` them.
+- Do not add new `.catch(() => undefined)`. Show query and mutation errors with `<ErrorMessage error={...} />` from `components/common`. Do not swallow them.
 - `api()` throws `Error` with the backend's `detail` message. Use `error.message` for user-facing text.
 
 ### Shared utilities and hooks (use these, don't reimplement)
@@ -113,20 +114,18 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 ## Testing
 
 - Framework: **Vitest**, with `@testing-library/react` and jsdom for DOM tests, and `axe-core` for accessibility checks.
-- Node tests (default environment): `src/format.test.ts`, `src/utils/amounts.test.ts`, `src/env.test.ts`, `src/api.test.ts`, and `src/resources/resources.test.ts` (checks each request's method, URL, and headers).
-- DOM tests start with `// @vitest-environment jsdom`. They are `src/hooks/index.test.ts`, `src/components/views.test.tsx` (each view renders, and add buttons open a dialog), `src/components/a11y.test.tsx` (axe on every view and open dialog, plus a negative control), and `src/components/common/modal.test.tsx` (focus in, focus return, Tab wrap).
+- Node tests (default environment): `src/format.test.ts`, `src/utils/amounts.test.ts`, `src/env.test.ts`, `src/api.test.ts`, and `src/resources/resources.test.ts` (checks each request's method, URL, and headers). `src/theme.contrast.test.ts` checks WCAG contrast (4.5:1) for theme text colors in both themes. It reads `theme.css` with `node:fs`, which is declared in `src/types/node-fs.d.ts` so no `@types/node` is needed.
+- DOM tests start with `// @vitest-environment jsdom`. They are `src/hooks/index.test.ts`, `src/components/views.test.tsx` (each view renders, and add buttons open a dialog), `src/components/a11y.test.tsx` (axe on every view and open dialog, plus a negative control), `src/components/common/modal.test.tsx` (focus in, focus return, Tab wrap, focus return after a mouse click in Safari), and `src/components/common/action-menu.test.tsx`. Views are tested with a `QueryClientProvider` (`createQueryClient(false)`).
 - New pure logic (formatters, hooks with logic, data transforms) gets tests next to the source file, named `*.test.ts`. New endpoints get a check in `resources.test.ts`. New views get a line in `views.test.tsx` and `a11y.test.tsx`.
 - Tests can't check the real layout. For UI changes, run `npm run dev` and check the flow in a browser, or say explicitly that you did not verify it visually.
 
 ## Known issues (be aware, don't silently "fix" unrelated)
 
-- **`package-lock.json` is untracked.** It should be committed (see Improvements). Ask before committing it.
 - **TypeScript is pinned to `^6.0.3`, not 7.x.** `typescript-eslint` 8.x supports TypeScript `<6.1` only. Do not upgrade TypeScript past 6.x until `typescript-eslint` supports it.
-- **Lint debt (warnings):** `react-hooks/set-state-in-effect` is a warning because load-on-mount is used across views. Turn it into an error after the data-fetching refactor. `@typescript-eslint/no-explicit-any` is an error, and no `any` casts remain.
+- **Lint:** there are no warnings. `react-hooks/set-state-in-effect` and `@typescript-eslint/no-explicit-any` are errors. Keep it that way.
 - **Add dependencies with `npm install -D <pkg>`.** Use a caret range (`^`) and commit the lockfile change with it. Ask before adding one.
 - **Docs:** `README.md` (setup, scripts, Docker) and `AGENTS.md` (this guide) are the only project docs. Do not add refactor reports or change logs; put lasting rules here.
 - **`vite.config.ts`** `server.allowedHosts` includes `expenses.lan.rpamplona.com`. Keep it when editing the config.
-- **Silent error swallowing** still exists in several places (`.catch(() => undefined)`). Don't copy this pattern.
 
 ## Improvements (proposed)
 
@@ -134,7 +133,7 @@ These are recommendations, ordered by priority. Do not start one unless the user
 
 ### P1: Quick wins (done)
 Done: scripts (`typecheck`, `lint`, `format`, `format:check`, `test:watch`, `check`), ESLint flat config with typescript-eslint and react-hooks, Prettier with `.prettierrc.json`, `.editorconfig`, `.nvmrc` and `engines` (Node 22), pinned dependency ranges, and a Dockerfile that runs `npm ci` from the lockfile.
-Still open: commit `package-lock.json` (ask first).
+Done: `package-lock.json` is committed.
 
 ### P2: Reliability and safety
 6. ~~**Add a CI workflow**~~ **Skipped by decision.** This is a personal project, so no CI is needed. Do not suggest it again unless the user asks.
@@ -147,14 +146,14 @@ Still open: commit `package-lock.json` (ask first).
 11. ~~**Split `main.tsx`**~~ **Done.** The shell is in `src/App.tsx`, the navigation is a module-level constant, and `main.tsx` mounts `<App />`.
 12. ~~**Add a session context**~~ **Done.** `SessionProvider` and `useSession()` in `src/session.tsx`. Views and sub-panels read `csrf_token` from it, and the `csrf` prop is gone.
 13. ~~**Group API calls by resource**~~ **Done.** One module per resource in `src/resources/` (not `src/api/`, because `src/api.ts` already exists). Components call `accountsApi.list()` and similar. The budget and transaction body types are loose (`Record<string, unknown>` for budgets); tighten them with item 10.
-14. **Consider TanStack Query** for server state (caching, loading and error states, invalidation after mutations). This replaces the hand-written `load()` plumbing. It is a larger change, so agree on it first.
-15. **Lazy-load feature views** with `React.lazy` + `Suspense`, which the old docs already list as a future step.
+14. ~~**Consider TanStack Query**~~ **Done.** Every read is a `useQuery` hook and every write is a `useMutation` hook, both in `src/queries.ts`. Writes invalidate related keys. The session is a query (`keys.session`), and logout clears the other cached data. The `load()` functions and the silent catches are gone.
+15. ~~**Lazy-load feature views**~~ **Done.** Each view is a `lazy()` import in `App.tsx`, inside a `Suspense` boundary and the error boundary. Auth loads eagerly. The build emits one chunk per view.
 16. ~~**Rename the inconsistent hook API**~~ **Done.** `useModal` returns `openModal` / `closeModal`.
 
 ### P4: Testing, accessibility, and polish
 17. ~~**Test the infrastructure, not just formatters**~~ **Done.** `api()`, hooks, every resource request, a smoke test per view, and the add dialogs are covered (see Testing). Interaction tests beyond that are still open.
-18. ~~**Accessibility pass**~~ **Done for the audited items.** Modals move focus in, return it on close, and trap Tab. Nav marks the current page with `aria-current`. Line-item inputs have accessible names, and the auth error is announced (`role="alert"`). axe reports no violations on any view or open dialog. Not covered: color contrast (axe can't check it in jsdom), keyboard use of the `ActionMenu` `<details>` menu, and focus return when a dialog is opened by a mouse click in Safari (Safari doesn't focus buttons on click).
-19. ~~**Design tokens**~~ **Done for colors and inline styles.** Colors were already tokens. Spacing (`--space-*`) and radius (`--radius*`) tokens were added, and every static inline style became a class. Still open: about 170 raw `px`/`rem` values in `styles.css` use literals, not tokens. Converting them would change the layout, so it needs a browser check first.
+18. ~~**Accessibility pass**~~ **Done for the audited items.** Modals move focus in, return it on close, and trap Tab. Nav marks the current page with `aria-current`. Line-item inputs have accessible names, and the auth error is announced (`role="alert"`). axe reports no violations on any view or open dialog. Color contrast for text is checked by `theme.contrast.test.ts`. Non-text colors (borders, shadows) are not. The `ActionMenu` test covers the click path. The native `<details>` keyboard activation is not simulated in jsdom. Safari focus return is covered by tracking the last pointer target.
+19. ~~**Design tokens**~~ **Done for colors and inline styles.** Colors were already tokens. Spacing (`--space-*`) and radius (`--radius*`) tokens were added, and every static inline style became a class. Spacing is tokenized: padding, margin, and gap values that match the scale (`.25`, `.5`, `.75`, `1rem`) use `--space-*`. Other literals (`.35rem`, `1.25rem`, font sizes, widths) are still raw, and changing them needs a browser check. Two light-theme text colors and one dark-theme color were darkened or lightened slightly to pass 4.5:1.
 20. ~~**Clean up**~~ **Done.** Deleted `src/main.tsx.bak` and the five refactor docs. `README.md` now has the current setup, scripts, and Docker steps.
 
 ## Working agreements for agents

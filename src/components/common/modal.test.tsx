@@ -36,6 +36,16 @@ describe("Modal focus management", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("returns focus to a button clicked with the mouse when the browser did not focus it (Safari)", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "Abrir" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("wraps Tab from the last control to the first", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Abrir" }));

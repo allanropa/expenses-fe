@@ -1,17 +1,11 @@
-import { useEffect, useState } from "react";
-import { dashboardApi } from "../../resources/dashboard";
-import type { Dashboard } from "../../types";
+import { ErrorMessage } from "../common";
+import { useDashboard } from "../../queries";
 import { money } from "../../utils/formatters";
 
 export function DashboardView() {
-  const [data, setData] = useState<Dashboard | null>(null);
-
-  useEffect(() => {
-    dashboardApi.get()
-      .then(setData)
-      .catch(() => undefined);
-  }, []);
-
+  const dashboard = useDashboard();
+  if (dashboard.error) return <ErrorMessage error={dashboard.error} />;
+  const data = dashboard.data;
   if (!data) return <p className="muted">Cargando resumen...</p>;
 
   const totals = (values: Record<string, string>) =>
@@ -42,9 +36,7 @@ export function DashboardView() {
         </article>
         <article className="metric">
           <span>Deuda</span>
-          <strong>
-            {data.card_debt.length + data.loan_debt.length}
-          </strong>
+          <strong>{data.card_debt.length + data.loan_debt.length}</strong>
         </article>
       </section>
       <div className="split-grid">
@@ -59,15 +51,11 @@ export function DashboardView() {
         </section>
         <section className="card">
           <h3>Deuda</h3>
-          {data.card_debt.length === 0 &&
-            data.loan_debt.length === 0 && (
-              <p className="muted">No hay deuda registrada.</p>
-            )}
+          {data.card_debt.length === 0 && data.loan_debt.length === 0 && (
+            <p className="muted">No hay deuda registrada.</p>
+          )}
           {data.card_debt.map((item, index) => (
-            <div
-              className="row"
-              key={`card-${item.card_id}-${item.currency}-${index}`}
-            >
+            <div className="row" key={`card-${item.card_id}-${item.currency}-${index}`}>
               <span>
                 {item.card_name} · {item.currency}
               </span>
@@ -95,8 +83,7 @@ export function DashboardView() {
                   <span>
                     {item.name}
                     <small>
-                      {item.percentage_used}% usado · {item.period_start} a{" "}
-                      {item.period_end}
+                      {item.percentage_used}% usado · {item.period_start} a {item.period_end}
                     </small>
                   </span>
                   <b>
@@ -124,19 +111,10 @@ export function DashboardView() {
                 </strong>
                 <small>
                   {item.transaction_date} · {item.currency} ·{" "}
-                  {item.source ||
-                    (item.payment_method === "credit"
-                      ? "Tarjeta"
-                      : "Cuenta")}
+                  {item.source || (item.payment_method === "credit" ? "Tarjeta" : "Cuenta")}
                 </small>
               </div>
-              <b
-                className={
-                  item.transaction_type === "income"
-                    ? "positive"
-                    : "negative"
-                }
-              >
+              <b className={item.transaction_type === "income" ? "positive" : "negative"}>
                 {item.transaction_type === "income" ? "+" : "-"}
                 {money(item.amount, item.currency)}
                 {item.original_amount != null && item.original_currency && (

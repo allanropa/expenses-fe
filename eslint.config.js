@@ -13,8 +13,7 @@ export default tseslint.config(
     ],
     rules: {
       "no-undef": "off",
-      // Load-on-mount via setState in effects is used throughout the app; revisit with the data-fetching refactor.
-      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/set-state-in-effect": "error",
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",

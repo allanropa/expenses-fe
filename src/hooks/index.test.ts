@@ -19,13 +19,11 @@ describe("useModal", () => {
 });
 
 describe("useForm", () => {
-  it("updates one field and resets to the initial state", () => {
+  it("replaces the form state", () => {
     const { result } = renderHook(() => useForm({ name: "", amount: "0" }));
-
-    act(() => result.current.updateField("name", "Caja"));
-    expect(result.current.form).toEqual({ name: "Caja", amount: "0" });
-
-    act(() => result.current.reset());
     expect(result.current.form).toEqual({ name: "", amount: "0" });
+
+    act(() => result.current.setForm({ name: "Caja", amount: "0" }));
+    expect(result.current.form).toEqual({ name: "Caja", amount: "0" });
   });
 });

@@ -7,6 +7,21 @@ interface ModalProps {
   children: ReactNode;
 }
 
+let lastPointerTarget: HTMLElement | null = null;
+
+if (typeof document !== "undefined") {
+  // Safari does not focus buttons on mouse click, so remember the clicked control
+  // to return focus to it when a dialog closes.
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      lastPointerTarget =
+        event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("button, a") : null;
+    },
+    true,
+  );
+}
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -15,7 +30,10 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
 
   useEffect(() => {
     if (!open) return;
-    const trigger = document.activeElement as HTMLElement | null;
+    const focused = document.activeElement;
+    const trigger = (
+      focused && focused !== document.body ? focused : lastPointerTarget
+    ) as HTMLElement | null;
     const dialog = dialogRef.current;
     (dialog?.querySelector<HTMLElement>(FOCUSABLE) ?? dialog)?.focus();
     return () => trigger?.focus();
@@ -130,4 +148,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
     return this.props.children;
   }
+}
+
+export function ErrorMessage({ error }: { error: unknown }) {
+  if (!error) return null;
+  const message = error instanceof Error ? error.message : "Algo salió mal. Intenta de nuevo.";
+  return (
+    <p className="error" role="alert">
+      {message}
+    </p>
+  );
 }

@@ -1,145 +1,164 @@
-import { FormEvent, useEffect, useState } from "react";
-import { accountsApi } from "../../resources/accounts";
-import type { Account, AccountMovement } from "../../types";
+import { FormEvent, useState } from "react";
+import type { Account } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { Modal, ActionMenu } from "../common";
+import { ActionMenu, ErrorMessage, Modal } from "../common";
 import { useForm, useModal } from "../../hooks";
-import { useSession } from "../../session";
+import {
+  useAccount,
+  useAccountMovements,
+  useAccounts,
+  useAdjustAccountBalance,
+  useArchiveAccount,
+  useCreateAccount,
+  useUpdateAccountProfile,
+} from "../../queries";
 
-interface AccountDetailsContentProps {
-  initialId: string;
-}
-
-function AccountDetailsContent({ initialId }: AccountDetailsContentProps) {
-  const [detail, setDetail] = useState<Account | null>(null);
-  const [movements, setMovements] = useState<AccountMovement[]>([]);
-  useEffect(() => {
-    accountsApi.get(initialId).then(setDetail).catch(() => undefined);
-    accountsApi.movements(initialId).then(setMovements).catch(() => undefined);
-  }, [initialId]);
+function AccountDetailsContent({ accountId }: { accountId: string }) {
+  const account = useAccount(accountId);
+  const movements = useAccountMovements(accountId);
+  if (account.error) return <ErrorMessage error={account.error} />;
+  const detail = account.data;
+  if (!detail) return <p className="muted">Cargando...</p>;
   return (
     <section className="card detail-panel">
-      {detail && (
-        <>
-          <div className="detail-heading">
-            <div>
-              <p className="eyebrow">Detalle</p>
-              <h3>{detail.name}</h3>
-              <p className="muted">{detail.account_type} · {detail.currency}</p>
-            </div>
-          </div>
-          <div className="detail-grid">
-            <div><small>Saldo actual</small><strong>{money(detail.current_balance, detail.currency)}</strong></div>
-          </div>
-          <h4>Movimientos</h4>
-          {movements.slice(0, 12).map((item) => (
-            <div className="row" key={item.id}>
-              <span>{item.effective_date} · {item.operation_type}{item.description ? ` · ${item.description}` : ""}</span>
-              <b>{money(item.amount, item.currency)}</b>
-            </div>
-          ))}
-        </>
-      )}
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Detalle</p>
+          <h3>{detail.name}</h3>
+          <p className="muted">
+            {detail.account_type} · {detail.currency}
+          </p>
+        </div>
+      </div>
+      <div className="detail-grid">
+        <div>
+          <small>Saldo actual</small>
+          <strong>{money(detail.current_balance, detail.currency)}</strong>
+        </div>
+      </div>
+      <h4>Movimientos</h4>
+      {movements.error && <ErrorMessage error={movements.error} />}
+      {(movements.data ?? []).slice(0, 12).map((item) => (
+        <div className="row" key={item.id}>
+          <span>
+            {item.effective_date} · {item.operation_type}
+            {item.description ? ` · ${item.description}` : ""}
+          </span>
+          <b>{money(item.amount, item.currency)}</b>
+        </div>
+      ))}
     </section>
   );
 }
 
-interface AccountDetailsPanelProps {
-  initialId?: string;
-  onChanged: () => void;
+function AccountDetailsPanel({ accountId }: { accountId: string }) {
+  const account = useAccount(accountId);
+  if (account.error) return <ErrorMessage error={account.error} />;
+  if (!account.data) return <p className="muted">Cargando...</p>;
+  return <AccountEditor key={account.data.id} account={account.data} />;
 }
 
-function AccountDetailsPanel({
-  initialId,
-  onChanged,
-}: AccountDetailsPanelProps) {
-  const { csrf_token: csrf } = useSession();
-  const [accountId, setAccountId] = useState(initialId ?? "");
-  const [detail, setDetail] = useState<Account | null>(null);
-  const [form, setForm] = useState({
+function AccountEditor({ account }: { account: Account }) {
+  const [editName, setEditName] = useState(account.name);
+  const [editDesc, setEditDesc] = useState(account.description ?? "");
+  const [adjustment, setAdjustment] = useState({
     target_balance: "",
     adjustment_date: toISODateString(),
     description: "",
   });
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  useEffect(() => {
-    if (!initialId) return;
-    setAccountId(initialId);
-    accountsApi.get(initialId).then((value) => {
-      setDetail(value);
-      setEditName(value.name);
-      setEditDesc(value.description ?? "");
-    }).catch(() => undefined);
-  }, [initialId]);
-  async function adjust(event: FormEvent) {
+  const saveProfile = useUpdateAccountProfile();
+  const adjustBalance = useAdjustAccountBalance();
+  const archive = useArchiveAccount();
+  const failure = saveProfile.error ?? adjustBalance.error ?? archive.error;
+
+  function submitProfile(event: FormEvent) {
     event.preventDefault();
-    if (!accountId) return;
-    await accountsApi.adjustBalance(csrf, accountId, form);
-    setForm({ ...form, target_balance: "", description: "" });
-    const updated = await accountsApi.get(accountId);
-    setDetail(updated);
-    setEditName(updated.name);
-    setEditDesc(updated.description ?? "");
+    saveProfile.mutate({ id: account.id, body: { name: editName, description: editDesc || null } });
   }
 
-  async function saveProfile(event: FormEvent) {
+  function submitAdjustment(event: FormEvent) {
     event.preventDefault();
-
-    await accountsApi.updateProfile(csrf, accountId, {
-      name: editName,
-      description: editDesc || null,
-    });
-
-    const updated = await accountsApi.get(accountId);
-    setDetail(updated);
-    setEditName(updated.name);
-    setEditDesc(updated.description ?? "");
-
-    onChanged();
-  }
-
-  async function archive() {
-    await accountsApi.archive(csrf, accountId);
-    onChanged();
+    adjustBalance.mutate(
+      { id: account.id, body: adjustment },
+      { onSuccess: () => setAdjustment({ ...adjustment, target_balance: "", description: "" }) },
+    );
   }
 
   return (
     <section className="card detail-panel">
-      {detail && (
-        <>
-          <div className="detail-heading">
-            <div>
-              <p className="eyebrow">Configurar</p>
-              <h3>{detail.name}</h3>
-              <p className="muted">{detail.account_type} · {detail.currency} · {money(detail.current_balance, detail.currency)}</p>
-            </div>
-          </div>
-          <h4>Editar cuenta</h4>
-          <form className="inline-form" onSubmit={saveProfile}>
-            <label>Nombre<input value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
-            <label>Descripción<input value={editDesc} onChange={(event) => setEditDesc(event.target.value)} /></label>
-            <button>Guardar</button>
-          </form>
-          <h4>Ajustar saldo</h4>
-          <form className="inline-form" onSubmit={adjust}>
-            <label>Nuevo saldo<input required type="number" step="0.01" value={form.target_balance} onChange={(event) => setForm({ ...form, target_balance: event.target.value })} /></label>
-            <label>Fecha<input required type="date" value={form.adjustment_date} onChange={(event) => setForm({ ...form, adjustment_date: event.target.value })} /></label>
-            <label>Descripción<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
-            <button>Registrar ajuste</button>
-          </form>
-          <button type="button" className="danger-button mt-4" onClick={archive}>Archivar cuenta</button>
-        </>
-      )}
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Configurar</p>
+          <h3>{account.name}</h3>
+          <p className="muted">
+            {account.account_type} · {account.currency} ·{" "}
+            {money(account.current_balance, account.currency)}
+          </p>
+        </div>
+      </div>
+      <ErrorMessage error={failure} />
+      <h4>Editar cuenta</h4>
+      <form className="inline-form" onSubmit={submitProfile}>
+        <label>
+          Nombre
+          <input value={editName} onChange={(event) => setEditName(event.target.value)} />
+        </label>
+        <label>
+          Descripción
+          <input value={editDesc} onChange={(event) => setEditDesc(event.target.value)} />
+        </label>
+        <button>Guardar</button>
+      </form>
+      <h4>Ajustar saldo</h4>
+      <form className="inline-form" onSubmit={submitAdjustment}>
+        <label>
+          Nuevo saldo
+          <input
+            required
+            type="number"
+            step="0.01"
+            value={adjustment.target_balance}
+            onChange={(event) =>
+              setAdjustment({ ...adjustment, target_balance: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Fecha
+          <input
+            required
+            type="date"
+            value={adjustment.adjustment_date}
+            onChange={(event) =>
+              setAdjustment({ ...adjustment, adjustment_date: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Descripción
+          <input
+            value={adjustment.description}
+            onChange={(event) => setAdjustment({ ...adjustment, description: event.target.value })}
+          />
+        </label>
+        <button>Registrar ajuste</button>
+      </form>
+      <button
+        type="button"
+        className="danger-button mt-4"
+        onClick={() => archive.mutate(account.id)}
+      >
+        Archivar cuenta
+      </button>
     </section>
   );
 }
 
 export function AccountsView() {
-  const { csrf_token: csrf } = useSession();
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const accounts = useAccounts();
+  const createAccount = useCreateAccount();
   const addModal = useModal();
   const detailModal = useModal();
   const configModal = useModal();
@@ -153,24 +172,22 @@ export function AccountsView() {
     opening_balance_date: toISODateString(),
   });
 
-  const load = () => accountsApi.list().then(setAccounts).catch(() => undefined);
+  const list = accounts.data ?? [];
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function submit(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault();
-    await accountsApi.create(csrf, form);
-    addModal.closeModal();
-    setForm({ ...form, name: "", opening_balance: "0" });
-    load();
+    createAccount.mutate(form, {
+      onSuccess: () => {
+        addModal.closeModal();
+        setForm({ ...form, name: "", opening_balance: "0" });
+      },
+    });
   }
 
   const totals = sumByCurrency(
-    accounts,
+    list,
     (account) => account.currency,
-    (account) => account.current_balance
+    (account) => account.current_balance,
   );
 
   return (
@@ -180,13 +197,18 @@ export function AccountsView() {
           <p className="eyebrow">Liquidez</p>
           <h2>Cuentas</h2>
         </div>
-        <button onClick={() => addModal.openModal()}>
+        <button
+          onClick={() => {
+            createAccount.reset();
+            addModal.openModal();
+          }}
+        >
           Agregar cuenta
         </button>
       </header>
 
       <section className="summary-strip">
-        <strong>{accounts.length} cuentas</strong>
+        <strong>{list.length} cuentas</strong>
         {Object.entries(totals).map(([currency, amount]) => (
           <span key={currency}>
             {currency}: {money(amount, currency)}
@@ -195,10 +217,13 @@ export function AccountsView() {
       </section>
 
       <section className="card list-card">
-        {accounts.length === 0 ? (
+        <ErrorMessage error={accounts.error} />
+        {accounts.isPending && !accounts.error ? (
+          <p className="muted">Cargando cuentas...</p>
+        ) : list.length === 0 && !accounts.error ? (
           <p className="muted">No hay cuentas registradas.</p>
         ) : (
-          accounts.map((account) => (
+          list.map((account) => (
             <div className="list-item" key={account.id}>
               <div>
                 <strong>{account.name}</strong>
@@ -206,12 +231,7 @@ export function AccountsView() {
                   {account.account_type} · {account.currency}
                 </small>
               </div>
-              <b>
-                {money(
-                  account.current_balance,
-                  account.currency
-                )}
-              </b>
+              <b>{money(account.current_balance, account.currency)}</b>
               <ActionMenu
                 onDetails={() => {
                   setDetailId(account.id);
@@ -227,20 +247,15 @@ export function AccountsView() {
         )}
       </section>
 
-      <Modal
-        open={addModal.open}
-        title="Agregar cuenta"
-        onClose={() => addModal.closeModal()}
-      >
+      <Modal open={addModal.open} title="Agregar cuenta" onClose={() => addModal.closeModal()}>
         <form className="stack" onSubmit={submit}>
+          <ErrorMessage error={createAccount.error} />
           <label>
             Nombre
             <input
               required
               value={form.name}
-              onChange={(event) =>
-                setForm({ ...form, name: event.target.value })
-              }
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
             />
           </label>
           <label>
@@ -283,7 +298,7 @@ export function AccountsView() {
         title="Detalle de cuenta"
         onClose={() => detailModal.closeModal()}
       >
-        {detailId !== null && <AccountDetailsContent initialId={String(detailId)} />}
+        {detailId !== null && <AccountDetailsContent accountId={String(detailId)} />}
       </Modal>
 
       <Modal
@@ -291,12 +306,7 @@ export function AccountsView() {
         title="Configurar cuenta"
         onClose={() => configModal.closeModal()}
       >
-        {configId !== null && (
-          <AccountDetailsPanel
-            initialId={String(configId)}
-            onChanged={load}
-          />
-        )}
+        {configId !== null && <AccountDetailsPanel accountId={String(configId)} />}
       </Modal>
     </>
   );

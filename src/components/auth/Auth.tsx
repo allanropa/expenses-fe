@@ -23,11 +23,7 @@ export function Auth({ onSession }: AuthProps) {
       const session: Session = await (registering ? authApi.register(form) : authApi.login(form));
       onSession(session);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Error de autenticación"
-      );
+      setError(requestError instanceof Error ? requestError.message : "Error de autenticación");
     }
   }
 
@@ -35,14 +31,8 @@ export function Auth({ onSession }: AuthProps) {
     <main className="auth-shell">
       <section className="auth-panel">
         <p className="eyebrow">Mis finanzas</p>
-        <h1>
-          {registering
-            ? "Crea tu espacio financiero"
-            : "Vuelve a tus números"}
-        </h1>
-        <p className="muted">
-          Una vista clara de tu dinero, tus obligaciones y tus hábitos.
-        </p>
+        <h1>{registering ? "Crea tu espacio financiero" : "Vuelve a tus números"}</h1>
+        <p className="muted">Una vista clara de tu dinero, tus obligaciones y tus hábitos.</p>
         <form onSubmit={submit} className="stack">
           {registering && (
             <label>
@@ -65,9 +55,7 @@ export function Auth({ onSession }: AuthProps) {
               required
               type="email"
               value={form.email}
-              onChange={(event) =>
-                setForm({ ...form, email: event.target.value })
-              }
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
             />
           </label>
           <label>
@@ -77,20 +65,17 @@ export function Auth({ onSession }: AuthProps) {
               minLength={8}
               type="password"
               value={form.password}
-              onChange={(event) =>
-                setForm({ ...form, password: event.target.value })
-              }
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
             />
           </label>
-          {error && <p className="error" role="alert">{error}</p>}
-          <button>
-            {registering ? "Crear cuenta" : "Iniciar sesión"}
-          </button>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <button>{registering ? "Crear cuenta" : "Iniciar sesión"}</button>
         </form>
-        <button
-          className="link-button"
-          onClick={() => setRegistering(!registering)}
-        >
+        <button className="link-button" onClick={() => setRegistering(!registering)}>
           {registering ? "Ya tengo una cuenta" : "Crear una cuenta"}
         </button>
       </section>
