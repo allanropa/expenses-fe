@@ -17,10 +17,6 @@ export type NewLoan = {
 
 export type LoanUpdate = {
   name: string;
-  annual_effective_rate?: string;
-  term_months?: number;
-  start_date?: string;
-  first_payment_date?: string;
 };
 
 export type LoanPaymentInput = {
@@ -45,6 +41,7 @@ export const loansApi = {
     api("/api/loans", { method: "POST", csrf, body: JSON.stringify(body) }),
   update: (csrf: string, id: Id, body: LoanUpdate) =>
     api(`/api/loans/${id}`, { method: "PATCH", csrf, body: JSON.stringify(body) }),
+  close: (csrf: string, id: Id) => api(`/api/loans/${id}/close`, { method: "POST", csrf }),
   archive: (csrf: string, id: Id) => api(`/api/loans/${id}/archive`, { method: "POST", csrf }),
   recordPayment: (csrf: string, id: Id, body: LoanPaymentInput) =>
     api(`/api/loans/${id}/payments`, { method: "POST", csrf, body: JSON.stringify(body) }),

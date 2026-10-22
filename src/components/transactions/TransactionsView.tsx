@@ -41,6 +41,7 @@ export function TransactionsView() {
   const cardList = cards.data ?? [];
   const categoryList = categories.data ?? [];
   const list = transactions.data ?? [];
+  const addModal = useModal();
   const detailModal = useModal();
   const [detailId, setDetailId] = useState<number | null>(null);
   const detailTransaction = list.find((item) => item.id === detailId);
@@ -78,7 +79,10 @@ export function TransactionsView() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const onSuccess = () => setDraft({ ...form, amount: "", description: "" });
+    const onSuccess = () => {
+      setDraft({ ...form, amount: "", description: "" });
+      addModal.closeModal();
+    };
 
     if (form.kind === "credit") {
       addPurchase.mutate(
@@ -128,6 +132,7 @@ export function TransactionsView() {
           <p className="eyebrow">Movimientos</p>
           <h2>Transacciones</h2>
         </div>
+        <button onClick={addModal.openModal}>Agregar movimiento</button>
       </header>
 
       <section className="summary-strip">
@@ -140,8 +145,11 @@ export function TransactionsView() {
       </section>
 
       <div className="split-grid">
-        <section className="card">
-          <h3>Agregar movimiento</h3>
+        <Modal
+          open={addModal.open}
+          title="Agregar movimiento"
+          onClose={() => addModal.closeModal()}
+        >
           <ErrorMessage
             error={
               createTransaction.error ??
@@ -333,9 +341,9 @@ export function TransactionsView() {
 
             <button>Guardar movimiento</button>
           </form>
-        </section>
+        </Modal>
 
-        <section className="card">
+        <section className="card transaction-list-card">
           <h3>Movimientos recientes</h3>
           {transactions.isPending && !transactions.error ? (
             <p className="muted">Cargando movimientos...</p>
@@ -451,19 +459,16 @@ function TransactionDetails({
           <small>Medio</small>
           <strong>{methodLabel}</strong>
         </div>
+        <div>
+          <small>Fuente</small>
+          <strong>{source}</strong>
+        </div>
       </div>
-      <p className="muted">{source}</p>
       <h4>Relacionado con</h4>
       <div className="row">
         <span>Categoría</span>
         <b>{categoryName}</b>
       </div>
-      {transaction.credit_purchase_id !== null && (
-        <div className="row">
-          <span>Compra a crédito</span>
-          <b>#{transaction.credit_purchase_id}</b>
-        </div>
-      )}
       {transaction.notes && (
         <>
           <h4>Notas</h4>

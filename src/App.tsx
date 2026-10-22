@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Auth } from "./components/auth/Auth";
-import { ErrorBoundary, ErrorMessage } from "./components/common";
+import { ErrorBoundary, ErrorMessage, LoadingSpinner } from "./components/common";
 import { keys, useLogout, useSessionQuery } from "./queries";
 import { SessionProvider } from "./session";
 
@@ -127,7 +127,7 @@ export function App() {
             </div>
           )}
           <ErrorBoundary key={view}>
-            <Suspense fallback={<p className="muted">Cargando...</p>}>{views[view]}</Suspense>
+            <Suspense fallback={<LoadingSpinner />}>{views[view]}</Suspense>
           </ErrorBoundary>
         </main>
       </div>

@@ -50,10 +50,35 @@ button {
 .muted {
   color: var(--text-muted);
 }
+.loading-spinner {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  margin: 2rem auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: loading-spinner 0.8s linear infinite;
+}
+@keyframes loading-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation-duration: 1.6s;
+  }
+}
 .error {
   padding: var(--space-3);
   color: var(--error);
   background: var(--error-wash);
+}
+.success {
+  padding: var(--space-3);
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 12%, var(--surface));
 }
 .stack {
   display: grid;
@@ -186,6 +211,28 @@ nav {
   padding-left: var(--space-4);
   border-left: 1px solid var(--border);
   font-size: 0.85rem;
+}
+.collapsible-card > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+.collapsible-card > summary::-webkit-details-marker {
+  display: none;
+}
+.collapsible-card > summary::after {
+  color: var(--text-muted);
+  content: "+";
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+.collapsible-card[open] > summary::after {
+  content: "−";
+}
+.collapsible-card > summary h3 {
+  margin: 0;
 }
 .list-card {
   padding: var(--space-2) 1.25rem;
@@ -330,6 +377,9 @@ h3 {
   display: grid;
   grid-template-columns: minmax(280px, 0.8fr) minmax(300px, 1.2fr);
   gap: var(--space-4);
+}
+.transaction-list-card {
+  grid-column: 1 / -1;
 }
 .interest-panel {
   display: grid;

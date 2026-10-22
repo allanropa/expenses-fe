@@ -227,6 +227,13 @@ export function useArchiveLoan() {
   return useWrite((csrf, id: Id) => loansApi.archive(csrf, id), [keys.loans, keys.dashboard]);
 }
 
+export function useCloseLoan() {
+  return useWrite(
+    (csrf, id: Id) => loansApi.close(csrf, id),
+    [keys.loans, keys.accounts, keys.transactions, keys.dashboard],
+  );
+}
+
 export function useRecordLoanPayment() {
   return useWrite(
     (csrf, vars: { id: Id; body: LoanPaymentInput }) =>

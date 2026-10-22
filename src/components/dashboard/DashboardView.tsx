@@ -1,6 +1,45 @@
+import { ReactNode, useState } from "react";
 import { ErrorMessage } from "../common";
 import { useDashboard } from "../../queries";
 import { money } from "../../utils/formatters";
+
+function storedOpenState(key: string) {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(key) !== "false";
+}
+
+function CollapsibleCard({
+  storageKey,
+  title,
+  className = "",
+  children,
+}: {
+  storageKey: string;
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(() => storedOpenState(storageKey));
+
+  function handleToggle(event: React.SyntheticEvent<HTMLDetailsElement>) {
+    const nextOpen = event.currentTarget.open;
+    setOpen(nextOpen);
+    window.localStorage.setItem(storageKey, String(nextOpen));
+  }
+
+  return (
+    <details
+      className={`card collapsible-card ${className}`.trim()}
+      open={open}
+      onToggle={handleToggle}
+    >
+      <summary>
+        <h3>{title}</h3>
+      </summary>
+      {children}
+    </details>
+  );
+}
 
 export function DashboardView() {
   const dashboard = useDashboard();
@@ -40,17 +79,15 @@ export function DashboardView() {
         </article>
       </section>
       <div className="split-grid">
-        <section className="card">
-          <h3>Liquidez</h3>
+        <CollapsibleCard storageKey="dashboard.liquidity.open" title="Liquidez">
           {data.accounts.map((account) => (
             <div className="row" key={account.id}>
               <span>{account.name}</span>
               <b>{money(account.balance, account.currency)}</b>
             </div>
           ))}
-        </section>
-        <section className="card">
-          <h3>Deuda</h3>
+        </CollapsibleCard>
+        <CollapsibleCard storageKey="dashboard.debt.open" title="Deuda">
           {data.card_debt.length === 0 && data.loan_debt.length === 0 && (
             <p className="muted">No hay deuda registrada.</p>
           )}
@@ -70,11 +107,10 @@ export function DashboardView() {
               <b>{money(item.outstanding, item.currency)}</b>
             </div>
           ))}
-        </section>
+        </CollapsibleCard>
       </div>
       {data.budgets.length > 0 && (
-        <section className="card mt-3">
-          <h3>Presupuestos</h3>
+        <CollapsibleCard storageKey="dashboard.budgets.open" title="Presupuestos" className="mt-3">
           {data.budgets.map((item) => {
             const pct = Math.min(Number(item.percentage_used), 200);
             return (
@@ -97,11 +133,14 @@ export function DashboardView() {
               </div>
             );
           })}
-        </section>
+        </CollapsibleCard>
       )}
       {data.recent_transactions.length > 0 && (
-        <section className="card list-card mt-3">
-          <h3>Últimos movimientos</h3>
+        <CollapsibleCard
+          storageKey="dashboard.recent-transactions.open"
+          title="Últimos movimientos"
+          className="list-card mt-3"
+        >
           {data.recent_transactions.map((item) => (
             <div className="list-item" key={item.id}>
               <div>
@@ -123,7 +162,7 @@ export function DashboardView() {
               </b>
             </div>
           ))}
-        </section>
+        </CollapsibleCard>
       )}
     </>
   );

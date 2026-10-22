@@ -121,6 +121,14 @@ describe("resource modules send the same requests as the views did", () => {
     expect(calls[1].init.method).toBe("PATCH");
   });
 
+  it("closes a loan through the close endpoint with CSRF protection", async () => {
+    await loansApi.close("tok", 5);
+    const call = only();
+    expect(call.url).toMatch(/\/api\/loans\/5\/close$/);
+    expect(call.init.method).toBe("POST");
+    expect(headers(call).get("X-CSRF-Token")).toBe("tok");
+  });
+
   it("deletes a transaction with the CSRF token", async () => {
     await transactionsApi.remove("tok", 9);
     const call = only();

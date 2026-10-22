@@ -159,3 +159,7 @@ export function ErrorMessage({ error }: { error: unknown }) {
     </p>
   );
 }
+
+export function LoadingSpinner() {
+  return <span className="loading-spinner" role="status" aria-label="Cargando" />;
+}

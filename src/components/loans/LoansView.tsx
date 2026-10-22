@@ -7,8 +7,8 @@ import { ActionMenu, ErrorMessage, Modal } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
-  useArchiveLoan,
   useCategories,
+  useCloseLoan,
   useCreateLoan,
   useLoan,
   useLoans,
@@ -186,92 +186,71 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   );
 }
 
-function LoanConfigurationPanel({
-  loanId,
-  onArchived,
-}: {
-  loanId: number;
-  onArchived: () => void;
-}) {
+function LoanConfigurationPanel({ loanId, onClosed }: { loanId: number; onClosed: () => void }) {
   const loan = useLoan(loanId);
   if (loan.error) return <ErrorMessage error={loan.error} />;
   if (!loan.data) return <p className="muted">Cargando...</p>;
-  return <LoanConfigurationForm key={loan.data.id} loan={loan.data} onArchived={onArchived} />;
+  return <LoanConfigurationForm key={loan.data.id} loan={loan.data} onClosed={onClosed} />;
 }
 
-function LoanConfigurationForm({ loan, onArchived }: { loan: Loan; onArchived: () => void }) {
+function LoanConfigurationForm({ loan, onClosed }: { loan: Loan; onClosed: () => void }) {
   const updateLoan = useUpdateLoan();
-  const archive = useArchiveLoan();
+  const closeLoan = useCloseLoan();
+  const closeModal = useModal();
   const [name, setName] = useState(loan.name);
-  const [rate, setRate] = useState(String(Number(loan.annual_effective_rate) * 100));
-  const [term, setTerm] = useState(String(loan.term_months));
-  const [startDate, setStartDate] = useState(loan.start_date);
-  const [firstPayment, setFirstPayment] = useState(loan.first_payment_date);
   function save(event: FormEvent) {
     event.preventDefault();
-    updateLoan.mutate({
-      id: loan.id,
-      body: {
-        name,
-        annual_effective_rate: rate ? String(Number(rate) / 100) : undefined,
-        term_months: term ? Number(term) : undefined,
-        start_date: startDate || undefined,
-        first_payment_date: firstPayment || undefined,
-      },
-    });
+    updateLoan.mutate({ id: loan.id, body: { name } });
   }
   return (
     <div className="stack">
       <p className="muted">
         Configurando: <strong>{loan.name}</strong>
       </p>
-      <ErrorMessage error={updateLoan.error ?? archive.error} />
+      <ErrorMessage error={updateLoan.error} />
       <form className="stack" onSubmit={save}>
         <label>
           Nombre
           <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          Interés efectivo anual (%)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-          />
-        </label>
-        <label>
-          Plazo en meses
-          <input
-            type="number"
-            min="1"
-            max="360"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-          />
-        </label>
-        <label>
-          Fecha de inicio
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </label>
-        <label>
-          Primera cuota
-          <input
-            type="date"
-            value={firstPayment}
-            onChange={(e) => setFirstPayment(e.target.value)}
-          />
         </label>
         <button>Guardar cambios</button>
       </form>
       <button
         type="button"
         className="danger-button"
-        onClick={() => archive.mutate(loan.id, { onSuccess: onArchived })}
+        onClick={() => {
+          closeLoan.reset();
+          closeModal.openModal();
+        }}
       >
-        Archivar préstamo
+        Cerrar préstamo
       </button>
+      <Modal open={closeModal.open} title="Cerrar préstamo" onClose={() => closeModal.closeModal()}>
+        <div className="stack">
+          <p>El préstamo se cerrará.</p>
+          <p>
+            Las cuotas pendientes se eliminarán, pero se conservarán los pagos existentes y los
+            registros financieros.
+          </p>
+          <p>
+            <strong>Esta acción no se puede deshacer.</strong>
+          </p>
+          <ErrorMessage error={closeLoan.error} />
+          <div className="archive-actions">
+            <button type="button" className="link-button" onClick={() => closeModal.closeModal()}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="danger-button"
+              disabled={closeLoan.isPending}
+              onClick={() => closeLoan.mutate(loan.id, { onSuccess: onClosed })}
+            >
+              {closeLoan.isPending ? "Cerrando..." : "Confirmar cierre"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -396,6 +375,7 @@ export function LoansView() {
   const detailModal = useModal();
   const configModal = useModal();
   const payModal = useModal();
+  const [notice, setNotice] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [configId, setConfigId] = useState<number | null>(null);
   const [payId, setPayId] = useState<number | null>(null);
@@ -462,6 +442,11 @@ export function LoansView() {
           </span>
         ))}
       </section>
+      {notice && (
+        <p className="success" role="status">
+          {notice}
+        </p>
+      )}
       <section className="card list-card">
         <ErrorMessage error={loans.error} />
         {loans.isPending && !loans.error ? (
@@ -609,7 +594,13 @@ export function LoansView() {
         onClose={() => configModal.closeModal()}
       >
         {configId !== null && (
-          <LoanConfigurationPanel loanId={configId} onArchived={() => configModal.closeModal()} />
+          <LoanConfigurationPanel
+            loanId={configId}
+            onClosed={() => {
+              configModal.closeModal();
+              setNotice("Préstamo cerrado correctamente.");
+            }}
+          />
         )}
       </Modal>
       <Modal open={payModal.open} title="Pagar préstamo" onClose={() => payModal.closeModal()}>

@@ -92,6 +92,105 @@ describe("add buttons open their dialog", () => {
   });
 });
 
+describe("loan closing", () => {
+  const jsonHeaders = { "Content-Type": "application/json" };
+  const loan = {
+    id: 1,
+    name: "Casa",
+    principal_amount: "100000",
+    outstanding_principal: "80000",
+    currency: "COP",
+    annual_effective_rate: "0.1",
+    monthly_rate: "0.008",
+    term_months: 12,
+    start_date: "2026-01-01",
+    first_payment_date: "2026-02-01",
+    record_as_income: true,
+    status: "active",
+    installments: [],
+  };
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+  }
+
+  async function openConfiguration() {
+    renderView(<LoansView />);
+    await screen.findByText("Casa");
+    fireEvent.click(screen.getByLabelText("Acciones"));
+    fireEvent.click(screen.getByRole("button", { name: "Configurar" }));
+    await screen.findByLabelText("Nombre");
+  }
+
+  it("only allows the loan name to be edited", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/api/loans")) return json([loan]);
+        if (url.endsWith("/api/loans/1")) return json(loan);
+        return json([]);
+      }),
+    );
+    await openConfiguration();
+    expect(screen.getByLabelText("Nombre")).toBeTruthy();
+    expect(screen.queryByLabelText("Interés efectivo anual (%)")).toBeNull();
+    expect(screen.queryByLabelText("Plazo en meses")).toBeNull();
+    expect(screen.queryByLabelText("Fecha de inicio")).toBeNull();
+    expect(screen.queryByLabelText("Primera cuota")).toBeNull();
+    expect(screen.queryByLabelText("Registrar como ingreso")).toBeNull();
+  });
+
+  it("shows the close confirmation and closes the loan successfully", async () => {
+    let closed = false;
+    const calls: { url: string; method?: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, method: init?.method });
+        if (url.endsWith("/api/loans") && !closed) return json([loan]);
+        if (url.endsWith("/api/loans/1/close")) {
+          closed = true;
+          return json({ ...loan, status: "archived" });
+        }
+        if (url.endsWith("/api/loans/1")) return json(loan);
+        return json([]);
+      }),
+    );
+    await openConfiguration();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar préstamo" }));
+    const confirmation = await screen.findByRole("dialog", { name: "Cerrar préstamo" });
+    expect(confirmation.textContent).toContain("cuotas pendientes se eliminarán");
+    expect(confirmation.textContent).toContain("pagos existentes y los registros financieros");
+    expect(confirmation.textContent).toContain("no se puede deshacer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar cierre" }));
+    await waitFor(() =>
+      expect(calls.some((call) => call.url.endsWith("/api/loans/1/close"))).toBe(true),
+    );
+    expect(await screen.findByText("Préstamo cerrado correctamente.")).toBeTruthy();
+    expect(await screen.findByText("No hay préstamos registrados.")).toBeTruthy();
+  });
+
+  it("keeps the confirmation open and shows a failed close request", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/api/loans")) return json([loan]);
+        if (url.endsWith("/api/loans/1")) return json(loan);
+        if (url.endsWith("/api/loans/1/close")) {
+          return json({ detail: "No se pudo cerrar el préstamo." }, 422);
+        }
+        return json([]);
+      }),
+    );
+    await openConfiguration();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar préstamo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar cierre" }));
+    expect(await screen.findByText("No se pudo cerrar el préstamo.")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Cerrar préstamo" })).toBeTruthy();
+  });
+});
+
 describe("errors are shown to the user", () => {
   const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -182,6 +281,7 @@ describe("transaction currency", () => {
   it("uses the account currency for a debit entry, not the card currency", async () => {
     const posted = mockApi();
     renderView(<TransactionsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar movimiento" }));
     await screen.findByRole("option", { name: "Caja USD (USD)" });
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "10" } });
     fireEvent.submit(
@@ -196,6 +296,7 @@ describe("transaction currency", () => {
   it("uses the card currency when the entry is switched to credit", async () => {
     const posted = mockApi();
     renderView(<TransactionsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar movimiento" }));
     await screen.findByRole("option", { name: "Caja USD (USD)" });
     fireEvent.change(screen.getByLabelText("Medio"), { target: { value: "credit" } });
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "10" } });
