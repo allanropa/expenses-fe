@@ -97,10 +97,12 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 ### Shared utilities and hooks (use these, don't reimplement)
 - **Money display:** `money(amount, currency)` from `utils/formatters.ts`. It accepts decimal strings.
 - **Money math:** never sum or multiply amounts with `Number()` or floats. Use `utils/amounts.ts`: `sumAmounts([...])`, `sumByCurrency(items, currencyOf, amountOf)`, `multiplyAmount(amount, rate, decimals)`, and `isPositiveAmount(x)` for `> 0` checks. Amounts stay decimal strings end to end, because the API uses decimal strings. Use `Number()` only for IDs.
+- **API types:** prefer explicit request and response types. Do not introduce `Record<string, unknown>` when the backend shape is known; update the type and its resource tests together.
 - **Environment:** `VITE_API_URL` is validated by `checkEnv()` in `src/env.ts`. `main.tsx` shows the error message instead of the app if the value is invalid.
 - **Dates:** `toISODateString()` for defaults. Never call `new Date()` inside initial state during render; it changes on every render.
 - **Modals:** `useModal()` returns `openModal` / `closeModal`. Pair it with `<Modal open onClose title>`.
 - **Forms:** `useForm()` from `hooks/index.ts`. Do not write local form helpers.
+- **Pagination:** do not infer a total count or `has_next` value from a full page; use backend pagination metadata when the endpoint provides it. If the backend contract is not confirmed, document the limitation instead of inventing a response shape.
 
 ### Styling
 - Use existing class names in `styles.css` / `theme.css` (`card`, `list-card`, `list-item`, `page-heading`, `eyebrow`, `muted`, `inline-form`, `stack`, `danger-button`, `summary-strip`, ...).
@@ -109,7 +111,7 @@ Check the existing call sites or `types.ts` before assuming a shape. The backend
 - Keep the mobile layout working (`mobile-top`, `mobile-menu` in `App.tsx`).
 
 ### Formatting
-- Match the surrounding file's style (2-space indent, double quotes, semicolons). No formatter is configured yet, so don't reformat unrelated code.
+- Match the surrounding file's style (2-space indent, double quotes, semicolons). Use Prettier and avoid reformatting unrelated code.
 
 ## Testing
 

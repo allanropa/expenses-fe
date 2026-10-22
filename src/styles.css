@@ -255,6 +255,37 @@ nav {
 .list-item small {
   color: var(--text-faint);
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+.pagination button {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+}
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.pagination span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.pagination-size {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.pagination-size select {
+  width: auto;
+  margin-left: var(--space-2);
+  padding: 0.35rem;
+}
 .item-menu {
   position: relative;
 }

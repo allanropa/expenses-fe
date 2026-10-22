@@ -3,7 +3,7 @@ import type { Card } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
 import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
-import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -239,7 +239,9 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
 
 function CardDetailsContent({ cardId }: { cardId: number }) {
   const card = useCard(cardId);
-  const purchases = useCardPurchases(cardId);
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(0);
+  const purchases = useCardPurchases(cardId, { limit: pageSize, offset: page * pageSize });
   if (card.error) return <ErrorMessage error={card.error} />;
   if (!card.data) return <p className="muted">Cargando detalle...</p>;
   const purchaseList = purchases.data ?? [];
@@ -272,7 +274,7 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
                 {rate.effective_to ? ` a ${rate.effective_to}` : " en adelante"}
               </small>
             </span>
-            <b>{Number(rate.monthly_rate) * 100}%</b>
+            <b>{multiplyAmount(rate.monthly_rate, "100", 4)}%</b>
           </div>
         ))
       )}
@@ -284,12 +286,22 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
             {purchase.description}
             <small>
               {purchase.installments_count} cuotas · {purchase.purchase_date} · tasa{" "}
-              {Number(purchase.monthly_interest_rate) * 100}%
+              {multiplyAmount(purchase.monthly_interest_rate, "100", 4)}%
             </small>
           </span>
           <b>{money(purchase.amount, purchase.currency)}</b>
         </div>
       ))}
+      <PaginationControls
+        page={page}
+        pageSize={pageSize}
+        itemCount={purchaseList.length}
+        onPageChange={setPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPage(0);
+          setPageSize(nextPageSize);
+        }}
+      />
     </>
   );
 }
@@ -317,7 +329,7 @@ function CardConfigurationForm({ card, onArchived }: { card: Card; onArchived: (
   );
   const [currency, setCurrency] = useState(initialCurrency);
   const [monthlyRate, setMonthlyRate] = useState(
-    initialRate ? String(Number(initialRate.monthly_rate) * 100) : "",
+    initialRate ? multiplyAmount(initialRate.monthly_rate, "100", 8) : "",
   );
   const [effectiveFrom, setEffectiveFrom] = useState(toISODateString());
   const [effectiveTo, setEffectiveTo] = useState("");
@@ -332,7 +344,7 @@ function CardConfigurationForm({ card, onArchived }: { card: Card; onArchived: (
         id: card.id,
         body: {
           currency,
-          monthly_rate: String(Number(monthlyRate) / 100),
+          monthly_rate: multiplyAmount(monthlyRate, "0.01", 12),
           effective_from: effectiveFrom,
           effective_to: effectiveTo || null,
         },

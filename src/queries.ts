@@ -57,10 +57,10 @@ export function useAccount(id: MaybeId) {
   });
 }
 
-export function useAccountMovements(id: MaybeId) {
+export function useAccountMovements(id: MaybeId, params?: { limit?: number; offset?: number }) {
   return useQuery({
-    queryKey: [...keys.accounts, id, "movements"],
-    queryFn: isSet(id) ? () => accountsApi.movements(id) : skipToken,
+    queryKey: [...keys.accounts, id, "movements", params],
+    queryFn: isSet(id) ? () => accountsApi.movements(id, params) : skipToken,
   });
 }
 
@@ -75,10 +75,10 @@ export function useCard(id: MaybeId) {
   });
 }
 
-export function useCardPurchases(id: MaybeId) {
+export function useCardPurchases(id: MaybeId, params?: { limit?: number; offset?: number }) {
   return useQuery({
-    queryKey: [...keys.cards, id, "purchases"],
-    queryFn: isSet(id) ? () => cardsApi.purchases(id) : skipToken,
+    queryKey: [...keys.cards, id, "purchases", params],
+    queryFn: isSet(id) ? () => cardsApi.purchases(id, params) : skipToken,
   });
 }
 
@@ -86,8 +86,8 @@ export function useCategories() {
   return useQuery({ queryKey: keys.categories, queryFn: () => categoriesApi.list() });
 }
 
-export function useLoans() {
-  return useQuery({ queryKey: keys.loans, queryFn: () => loansApi.list() });
+export function useLoans(params?: { limit?: number; offset?: number }) {
+  return useQuery({ queryKey: [...keys.loans, params], queryFn: () => loansApi.list(params) });
 }
 
 export function useLoan(id: MaybeId) {
@@ -115,8 +115,11 @@ export function useBudgetSummary(id: MaybeId) {
   });
 }
 
-export function useTransactions() {
-  return useQuery({ queryKey: keys.transactions, queryFn: () => transactionsApi.list() });
+export function useTransactions(params?: { limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: [...keys.transactions, params],
+    queryFn: () => transactionsApi.list(params),
+  });
 }
 
 export function useDashboard() {

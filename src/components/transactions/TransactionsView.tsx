@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import type { Transaction } from "../../types";
 import {
@@ -29,7 +29,9 @@ type FormState = {
 };
 
 export function TransactionsView() {
-  const transactions = useTransactions();
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(0);
+  const transactions = useTransactions({ limit: pageSize, offset: page * pageSize });
   const accounts = useAccounts();
   const cards = useCards();
   const categories = useCategories();
@@ -385,6 +387,16 @@ export function TransactionsView() {
               </div>
             ))
           )}
+          <PaginationControls
+            page={page}
+            pageSize={pageSize}
+            itemCount={list.length}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPage(0);
+              setPageSize(nextPageSize);
+            }}
+          />
         </section>
       </div>
       <Modal

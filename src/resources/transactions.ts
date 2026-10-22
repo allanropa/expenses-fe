@@ -8,11 +8,28 @@ export type NewTransaction = {
   transaction_date: string;
   account_id: number;
   category_id: number;
-  description: string;
+  description?: string | null;
+  notes?: string | null;
+};
+
+export type TransactionUpdate = Partial<NewTransaction>;
+
+export type TransactionListParams = {
+  date_from?: string;
+  date_to?: string;
+  transaction_type?: string;
+  account_id?: number;
+  category_id?: number;
+  search?: string;
+  limit?: number;
+  offset?: number;
 };
 
 export const transactionsApi = {
-  list: () => api<Transaction[]>("/api/transactions"),
+  list: (params?: TransactionListParams) =>
+    api<Transaction[]>(
+      `/api/transactions${params ? `?${new URLSearchParams(params as Record<string, string>)}` : ""}`,
+    ),
   create: (csrf: string, body: NewTransaction) =>
     api("/api/transactions", {
       method: "POST",
@@ -21,4 +38,6 @@ export const transactionsApi = {
       body: JSON.stringify(body),
     }),
   remove: (csrf: string, id: number) => api(`/api/transactions/${id}`, { method: "DELETE", csrf }),
+  update: (csrf: string, id: number, body: TransactionUpdate) =>
+    api(`/api/transactions/${id}`, { method: "PATCH", csrf, body: JSON.stringify(body) }),
 };

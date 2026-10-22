@@ -16,7 +16,7 @@ export type NewLoan = {
 };
 
 export type LoanUpdate = {
-  name: string;
+  name?: string | null;
 };
 
 export type LoanPaymentInput = {
@@ -35,7 +35,10 @@ export type LoanExtraPrincipalInput = {
 };
 
 export const loansApi = {
-  list: () => api<Loan[]>("/api/loans"),
+  list: (params?: { limit?: number; offset?: number }) =>
+    api<Loan[]>(
+      `/api/loans${params ? `?${new URLSearchParams(params as Record<string, string>)}` : ""}`,
+    ),
   get: (id: Id) => api<Loan>(`/api/loans/${id}`),
   create: (csrf: string, body: NewLoan) =>
     api("/api/loans", { method: "POST", csrf, body: JSON.stringify(body) }),

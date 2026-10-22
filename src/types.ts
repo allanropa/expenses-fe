@@ -178,6 +178,8 @@ export type Dashboard = {
     balance: string;
     percentage_used: string;
     excess: string;
+    equivalent_budget_days: string | null;
+    daily_history: Record<string, unknown>[];
     period_start: string;
     period_end: string;
   }[];

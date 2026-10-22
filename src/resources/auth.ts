@@ -10,4 +10,6 @@ export const authApi = {
   logout: (csrf: string) => api("/api/auth/logout", { method: "POST", csrf }),
   updateProfile: (csrf: string, body: { display_name: string }) =>
     api("/api/auth/profile", { method: "PATCH", csrf, body: JSON.stringify(body) }),
+  changePassword: (csrf: string, body: { current_password: string; new_password: string }) =>
+    api("/api/auth/password", { method: "POST", csrf, body: JSON.stringify(body) }),
 };

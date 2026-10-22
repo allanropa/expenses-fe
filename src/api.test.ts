@@ -43,13 +43,21 @@ describe("api", () => {
     await expect(api("/api/x")).rejects.toThrow("No fue posible completar la solicitud.");
   });
 
-  it("sends the CSRF token, JSON content type, and credentials with a body", async () => {
+  it("sends the CSRF token, JSON headers, and credentials with a body", async () => {
     const fetchMock = mockFetch(new Response("{}", { status: 200, headers: jsonHeaders }));
     await api("/api/x", { method: "POST", csrf: "tok", body: "{}" });
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = new Headers(init.headers);
     expect(headers.get("X-CSRF-Token")).toBe("tok");
     expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("Accept")).toBe("application/json");
     expect(init.credentials).toBe("include");
+  });
+
+  it("uses a generic message when detail is not a string", async () => {
+    mockFetch(
+      new Response(JSON.stringify({ detail: { message: "private data" } }), { status: 400 }),
+    );
+    await expect(api("/api/x")).rejects.toThrow("No fue posible completar la solicitud.");
   });
 });

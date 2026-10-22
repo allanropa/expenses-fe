@@ -163,3 +163,43 @@ export function ErrorMessage({ error }: { error: unknown }) {
 export function LoadingSpinner() {
   return <span className="loading-spinner" role="status" aria-label="Cargando" />;
 }
+
+export function PaginationControls({
+  page,
+  pageSize,
+  itemCount,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  itemCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const hasNext = itemCount === pageSize;
+  if (page === 0 && itemCount === 0) return null;
+  return (
+    <nav className="pagination" aria-label="Paginación">
+      <button type="button" disabled={page === 0} onClick={() => onPageChange(page - 1)}>
+        Anterior
+      </button>
+      <span>Página {page + 1}</span>
+      <button type="button" disabled={!hasNext} onClick={() => onPageChange(page + 1)}>
+        Siguiente
+      </button>
+      <label className="pagination-size">
+        Por página
+        <select
+          aria-label="Elementos por página"
+          value={pageSize}
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
+        >
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+      </label>
+    </nav>
+  );
+}

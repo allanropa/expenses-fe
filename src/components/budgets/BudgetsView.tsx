@@ -1,7 +1,8 @@
 import { FormEvent, useState } from "react";
 import type { Budget } from "../../types";
+import type { BudgetInput } from "../../resources/budgets";
 import { money } from "../../utils/formatters";
-import { sumByCurrency } from "../../utils/amounts";
+import { isPositiveAmount, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
 import { ActionMenu, ErrorMessage, Modal } from "../common";
 import { useModal } from "../../hooks";
@@ -88,7 +89,9 @@ function BudgetDetailsContent({ initialId }: { initialId: string }) {
             <div className="row">
               <span>Uso ({current.percentage_used}%)</span>
               <b>
-                {Number(current.excess) <= 0 ? "Dentro del límite" : `Exceso: ${current.excess}`}
+                {isPositiveAmount(current.excess)
+                  ? `Exceso: ${current.excess}`
+                  : "Dentro del límite"}
               </b>
             </div>
             <div className="budget-progress">
@@ -152,12 +155,14 @@ function BudgetConfigurationForm({
         : true;
   function save(event: FormEvent) {
     event.preventDefault();
-    const body: Record<string, unknown> = {
+    const body: BudgetInput = {
       name,
       budget_type: budgetType,
       target_amount: targetAmount,
+      currency: budget.currency,
       period_type: periodType,
       scope,
+      spending_type: spendingType,
     };
     if (scope === "account") {
       body.account_id = Number(selectedAccountId);
@@ -317,29 +322,33 @@ export function BudgetsView() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const body: Record<string, unknown> = {
-      ...form,
+    const body: BudgetInput = {
+      name: form.name,
+      budget_type: form.budget_type,
       target_amount: form.target_amount,
+      currency: form.currency,
+      period_type: form.period_type,
       scope: form.scope,
+      spending_type: form.spending_type,
     };
     if (form.scope === "account") {
       if (!form.account_id) return;
       body.account_id = Number(form.account_id);
       body.spending_type = "debit";
     } else {
-      delete body.account_id;
+      body.account_id = null;
     }
     if (form.scope === "card") {
       if (!form.card_id) return;
       body.card_id = Number(form.card_id);
       body.spending_type = "credit";
     } else {
-      delete body.card_id;
+      body.card_id = null;
     }
-    delete body.category_id;
+    body.category_id = null;
     if (form.period_type !== "custom") {
-      delete body.start_date;
-      delete body.end_date;
+      body.start_date = undefined;
+      body.end_date = undefined;
     }
     createBudget.mutate(body, {
       onSuccess: () => {

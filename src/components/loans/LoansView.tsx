@@ -1,9 +1,9 @@
 import { FormEvent, useState } from "react";
 import type { Loan } from "../../types";
 import { money } from "../../utils/formatters";
-import { isPositiveAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
+import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -297,7 +297,7 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
         </div>
         <div>
           <small>Interés efectivo anual</small>
-          <strong>{Number(current.annual_effective_rate) * 100}%</strong>
+          <strong>{multiplyAmount(current.annual_effective_rate, "100", 4)}%</strong>
         </div>
         <div>
           <small>Plazo</small>
@@ -368,7 +368,9 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
 }
 
 export function LoansView() {
-  const loans = useLoans();
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(0);
+  const loans = useLoans({ limit: pageSize, offset: page * pageSize });
   const accounts = useAccounts();
   const createLoan = useCreateLoan();
   const addModal = useModal();
@@ -399,7 +401,7 @@ export function LoansView() {
       {
         ...form,
         principal_amount: form.principal_amount,
-        annual_effective_rate: String(Number(form.annual_effective_rate) / 100),
+        annual_effective_rate: multiplyAmount(form.annual_effective_rate, "0.01", 12),
         term_months: Number(form.term_months),
         source_account_id: form.source_account_id ? Number(form.source_account_id) : undefined,
       },
@@ -459,7 +461,8 @@ export function LoansView() {
               <div>
                 <strong>{loan.name}</strong>
                 <small>
-                  {loan.term_months} meses · EA {Number(loan.annual_effective_rate) * 100}%
+                  {loan.term_months} meses · EA{" "}
+                  {multiplyAmount(loan.annual_effective_rate, "100", 4)}%
                 </small>
               </div>
               <b>{money(loan.outstanding_principal, loan.currency)}</b>
@@ -480,6 +483,16 @@ export function LoansView() {
             </div>
           ))
         )}
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          itemCount={list.length}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPage(0);
+            setPageSize(nextPageSize);
+          }}
+        />
       </section>
       <Modal open={addModal.open} title="Agregar préstamo" onClose={() => addModal.closeModal()}>
         <form className="stack" onSubmit={submit}>

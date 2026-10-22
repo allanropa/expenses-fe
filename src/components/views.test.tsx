@@ -126,7 +126,7 @@ describe("loan closing", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.endsWith("/api/loans")) return json([loan]);
+        if (url.split("?")[0].endsWith("/api/loans")) return json([loan]);
         if (url.endsWith("/api/loans/1")) return json(loan);
         return json([]);
       }),
@@ -147,7 +147,7 @@ describe("loan closing", () => {
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         calls.push({ url, method: init?.method });
-        if (url.endsWith("/api/loans") && !closed) return json([loan]);
+        if (url.split("?")[0].endsWith("/api/loans") && !closed) return json([loan]);
         if (url.endsWith("/api/loans/1/close")) {
           closed = true;
           return json({ ...loan, status: "archived" });
@@ -175,7 +175,7 @@ describe("loan closing", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.endsWith("/api/loans")) return json([loan]);
+        if (url.split("?")[0].endsWith("/api/loans")) return json([loan]);
         if (url.endsWith("/api/loans/1")) return json(loan);
         if (url.endsWith("/api/loans/1/close")) {
           return json({ detail: "No se pudo cerrar el préstamo." }, 422);
@@ -269,8 +269,8 @@ describe("transaction currency", () => {
           posted.push({ url, body: JSON.parse(String(init.body)) });
           return json({});
         }
-        if (url.endsWith("/api/accounts")) return json([account]);
-        if (url.endsWith("/api/cards")) return json([card]);
+        if (url.split("?")[0].endsWith("/api/accounts")) return json([account]);
+        if (url.split("?")[0].endsWith("/api/cards")) return json([card]);
         if (url.endsWith("/api/categories")) return json([category]);
         return json([]);
       }),
@@ -357,8 +357,8 @@ describe("transaction details", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.endsWith("/api/transactions")) return json(transactions);
-        if (url.endsWith("/api/accounts")) return json([account]);
+        if (url.split("?")[0].endsWith("/api/transactions")) return json(transactions);
+        if (url.split("?")[0].endsWith("/api/accounts")) return json([account]);
         if (url.endsWith("/api/categories")) return json([category]);
         return json([]);
       }),
@@ -427,8 +427,8 @@ describe("transaction source in details", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.endsWith("/api/transactions")) return json(transactions);
-        if (url.endsWith("/api/cards")) return json([card]);
+        if (url.split("?")[0].endsWith("/api/transactions")) return json(transactions);
+        if (url.split("?")[0].endsWith("/api/cards")) return json([card]);
         if (url.endsWith("/api/categories"))
           return json([{ id: 3, name: "Comida", kind: "expense", is_archived: false }]);
         return json([]);
@@ -499,8 +499,8 @@ describe("transaction source in the list", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.endsWith("/api/transactions")) return json(transactions);
-        if (url.endsWith("/api/cards")) return json([card]);
+        if (url.split("?")[0].endsWith("/api/transactions")) return json(transactions);
+        if (url.split("?")[0].endsWith("/api/cards")) return json([card]);
         if (url.endsWith("/api/categories"))
           return json([{ id: 3, name: "Comida", kind: "expense", is_archived: false }]);
         return json([]);

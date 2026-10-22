@@ -9,6 +9,7 @@ export type NewAccount = {
   account_type: string;
   opening_balance: string;
   opening_balance_date: string;
+  description?: string | null;
 };
 
 export type BalanceAdjustment = {
@@ -25,7 +26,10 @@ export type AccountProfile = {
 export const accountsApi = {
   list: () => api<Account[]>("/api/accounts"),
   get: (id: Id) => api<Account>(`/api/accounts/${id}`),
-  movements: (id: Id) => api<AccountMovement[]>(`/api/accounts/${id}/movements`),
+  movements: (id: Id, params?: { limit?: number; offset?: number }) =>
+    api<AccountMovement[]>(
+      `/api/accounts/${id}/movements${params ? `?${new URLSearchParams(params as Record<string, string>)}` : ""}`,
+    ),
   create: (csrf: string, body: NewAccount) =>
     api("/api/accounts", { method: "POST", csrf, body: JSON.stringify(body) }),
   updateProfile: (csrf: string, id: Id, body: AccountProfile) =>

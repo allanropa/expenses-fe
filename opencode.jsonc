@@ -15,8 +15,8 @@
   },
   "commands": {
     "check": {
-      "description": "Run typecheck, lint, and tests",
-      "template": "Run `npm run check` (typecheck, lint, tests). Report results. For each failure, give the file and line, and say whether it was in a file changed in this session.",
+      "description": "Run all frontend checks and the production build",
+      "template": "Run `npm run check` and `npm run build`. Report results. For each failure, give the file and line, and say whether it was in a file changed in this session.",
     },
   },
 }

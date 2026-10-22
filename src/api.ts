@@ -18,23 +18,34 @@ function getApiUrl(): string {
 
 export type ApiOptions = RequestInit & { csrf?: string };
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   // Get API URL dynamically on each request
   const API_URL = getApiUrl();
 
   const headers = new Headers(options.headers);
   if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
   if (options.csrf) headers.set("X-CSRF-Token", options.csrf);
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
+    signal: options.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     credentials: "include",
   });
   if (!response.ok) {
     const body = await response
       .json()
       .catch(() => ({ detail: "No fue posible completar la solicitud." }));
-    throw new Error(body.detail ?? "No fue posible completar la solicitud.");
+    const detail =
+      typeof body === "object" &&
+      body !== null &&
+      "detail" in body &&
+      typeof body.detail === "string"
+        ? body.detail
+        : "No fue posible completar la solicitud.";
+    throw new Error(detail);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

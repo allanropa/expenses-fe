@@ -3,7 +3,7 @@ import type { Account } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
 import { useForm, useModal } from "../../hooks";
 import {
   useAccount,
@@ -17,7 +17,9 @@ import {
 
 function AccountDetailsContent({ accountId }: { accountId: string }) {
   const account = useAccount(accountId);
-  const movements = useAccountMovements(accountId);
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(0);
+  const movements = useAccountMovements(accountId, { limit: pageSize, offset: page * pageSize });
   if (account.error) return <ErrorMessage error={account.error} />;
   const detail = account.data;
   if (!detail) return <p className="muted">Cargando...</p>;
@@ -40,7 +42,7 @@ function AccountDetailsContent({ accountId }: { accountId: string }) {
       </div>
       <h4>Movimientos</h4>
       {movements.error && <ErrorMessage error={movements.error} />}
-      {(movements.data ?? []).slice(0, 12).map((item) => (
+      {(movements.data ?? []).map((item) => (
         <div className="row" key={item.id}>
           <span>
             {item.effective_date} · {item.operation_type}
@@ -49,6 +51,16 @@ function AccountDetailsContent({ accountId }: { accountId: string }) {
           <b>{money(item.amount, item.currency)}</b>
         </div>
       ))}
+      <PaginationControls
+        page={page}
+        pageSize={pageSize}
+        itemCount={movements.data?.length ?? 0}
+        onPageChange={setPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPage(0);
+          setPageSize(nextPageSize);
+        }}
+      />
     </section>
   );
 }
