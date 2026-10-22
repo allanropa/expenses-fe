@@ -142,15 +142,18 @@ export function DashboardView() {
           className="list-card mt-3"
         >
           {data.recent_transactions.map((item) => (
-            <div className="list-item" key={item.id}>
+            <div className="list-item" key={`${item.entry_type}-${item.id}`}>
               <div>
                 <strong>
-                  {item.description || item.transaction_type}
+                  {item.description ||
+                    (item.entry_type === "transfer" ? "Transferencia" : item.transaction_type)}
+                  {item.entry_type === "transfer" && <span className="chip">Transferencia</span>}
                   {item.transaction_type === "payment" && <span className="chip">Pago</span>}
                 </strong>
                 <small>
                   {item.transaction_date} · {item.currency} ·{" "}
                   {item.source || (item.payment_method === "credit" ? "Tarjeta" : "Cuenta")}
+                  {item.destination ? ` → ${item.destination}` : ""}
                 </small>
               </div>
               <b className={item.transaction_type === "income" ? "positive" : "negative"}>

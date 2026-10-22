@@ -7,6 +7,7 @@ import { categoriesApi } from "./categories";
 import { loansApi } from "./loans";
 import { settingsApi } from "./settings";
 import { transactionsApi } from "./transactions";
+import { transfersApi } from "./transfers";
 
 type Call = { url: string; init: RequestInit };
 
@@ -146,6 +147,20 @@ describe("resource modules send the same requests as the views did", () => {
     expect(headers(calls[0]).get("X-CSRF-Token")).toBe("tok");
     expect(calls[1].url).toMatch(/\/api\/categories\/9$/);
     expect(calls[1].init.method).toBe("DELETE");
+  });
+
+  it("creates a transfer with CSRF and idempotency headers", async () => {
+    await transfersApi.create("tok", {
+      source_account_id: 1,
+      destination_account_id: 2,
+      source_amount: "100",
+      transfer_date: "2026-10-19",
+    });
+    const call = only();
+    expect(call.url).toMatch(/\/api\/transfers$/);
+    expect(call.init.method).toBe("POST");
+    expect(headers(call).get("X-CSRF-Token")).toBe("tok");
+    expect(headers(call).get("Idempotency-Key")).toBeTruthy();
   });
 
   it("reads budget summaries without a CSRF token", async () => {

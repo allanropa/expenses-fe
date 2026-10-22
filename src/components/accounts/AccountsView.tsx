@@ -12,6 +12,7 @@ import {
   useAdjustAccountBalance,
   useArchiveAccount,
   useCreateAccount,
+  useCreateTransfer,
   useUpdateAccountProfile,
 } from "../../queries";
 
@@ -171,7 +172,9 @@ function AccountEditor({ account }: { account: Account }) {
 export function AccountsView() {
   const accounts = useAccounts();
   const createAccount = useCreateAccount();
+  const createTransfer = useCreateTransfer();
   const addModal = useModal();
+  const transferModal = useModal();
   const detailModal = useModal();
   const configModal = useModal();
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -183,6 +186,15 @@ export function AccountsView() {
     opening_balance: "0",
     opening_balance_date: toISODateString(),
   });
+  const { form: transferForm, setForm: setTransferForm } = useForm({
+    source_account_id: "",
+    destination_account_id: "",
+    source_amount: "",
+    destination_amount: "",
+    transfer_date: toISODateString(),
+    exchange_rate: "",
+    description: "",
+  });
 
   const list = accounts.data ?? [];
 
@@ -192,6 +204,41 @@ export function AccountsView() {
       onSuccess: () => {
         addModal.closeModal();
         setForm({ ...form, name: "", opening_balance: "0" });
+      },
+    });
+  }
+
+  function submitTransfer(event: FormEvent) {
+    event.preventDefault();
+    const source = list.find((account) => account.id === Number(transferForm.source_account_id));
+    const destination = list.find(
+      (account) => account.id === Number(transferForm.destination_account_id),
+    );
+    if (!source || !destination) return;
+
+    const body = {
+      source_account_id: source.id,
+      destination_account_id: destination.id,
+      source_amount: transferForm.source_amount,
+      transfer_date: transferForm.transfer_date,
+      ...(source.currency !== destination.currency
+        ? {
+            destination_amount: transferForm.destination_amount,
+            exchange_rate: transferForm.exchange_rate,
+          }
+        : {}),
+      ...(transferForm.description ? { description: transferForm.description } : {}),
+    };
+    createTransfer.mutate(body, {
+      onSuccess: () => {
+        transferModal.closeModal();
+        setTransferForm({
+          ...transferForm,
+          source_amount: "",
+          destination_amount: "",
+          exchange_rate: "",
+          description: "",
+        });
       },
     });
   }
@@ -216,6 +263,15 @@ export function AccountsView() {
           }}
         >
           Agregar cuenta
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            createTransfer.reset();
+            transferModal.openModal();
+          }}
+        >
+          Transferir
         </button>
       </header>
 
@@ -302,6 +358,141 @@ export function AccountsView() {
             </select>
           </label>
           <button>Guardar cuenta</button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={transferModal.open}
+        title="Transferir entre cuentas"
+        onClose={() => transferModal.closeModal()}
+      >
+        <form className="stack" onSubmit={submitTransfer}>
+          <ErrorMessage error={createTransfer.error} />
+          {list.length < 2 ? (
+            <p className="muted">Necesitas al menos dos cuentas para hacer una transferencia.</p>
+          ) : (
+            <>
+              <label>
+                Cuenta de origen
+                <select
+                  required
+                  value={transferForm.source_account_id}
+                  onChange={(event) =>
+                    setTransferForm({ ...transferForm, source_account_id: event.target.value })
+                  }
+                >
+                  <option value="">Selecciona una cuenta</option>
+                  {list.map((account) => (
+                    <option
+                      value={account.id}
+                      key={account.id}
+                      disabled={account.id === Number(transferForm.source_account_id)}
+                    >
+                      {account.name} ({account.currency})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Cuenta de destino
+                <select
+                  required
+                  value={transferForm.destination_account_id}
+                  onChange={(event) =>
+                    setTransferForm({ ...transferForm, destination_account_id: event.target.value })
+                  }
+                >
+                  <option value="">Selecciona una cuenta</option>
+                  {list.map((account) => (
+                    <option
+                      value={account.id}
+                      key={account.id}
+                      disabled={account.id === Number(transferForm.destination_account_id)}
+                    >
+                      {account.name} ({account.currency})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Monto de origen
+                <input
+                  required
+                  min="0.01"
+                  step="0.01"
+                  type="number"
+                  value={transferForm.source_amount}
+                  onChange={(event) =>
+                    setTransferForm({ ...transferForm, source_amount: event.target.value })
+                  }
+                />
+              </label>
+              {(() => {
+                const source = list.find(
+                  (account) => account.id === Number(transferForm.source_account_id),
+                );
+                const destination = list.find(
+                  (account) => account.id === Number(transferForm.destination_account_id),
+                );
+                if (!source || !destination || source.currency === destination.currency)
+                  return null;
+                return (
+                  <>
+                    <label>
+                      Monto de destino
+                      <input
+                        required
+                        min="0.01"
+                        step="0.01"
+                        type="number"
+                        value={transferForm.destination_amount}
+                        onChange={(event) =>
+                          setTransferForm({
+                            ...transferForm,
+                            destination_amount: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Tasa de cambio
+                      <input
+                        required
+                        min="0.0000000001"
+                        step="0.0000000001"
+                        type="number"
+                        value={transferForm.exchange_rate}
+                        onChange={(event) =>
+                          setTransferForm({ ...transferForm, exchange_rate: event.target.value })
+                        }
+                      />
+                    </label>
+                  </>
+                );
+              })()}
+              <label>
+                Fecha
+                <input
+                  required
+                  type="date"
+                  value={transferForm.transfer_date}
+                  onChange={(event) =>
+                    setTransferForm({ ...transferForm, transfer_date: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Descripción
+                <input
+                  value={transferForm.description}
+                  onChange={(event) =>
+                    setTransferForm({ ...transferForm, description: event.target.value })
+                  }
+                />
+              </label>
+              <button disabled={createTransfer.isPending}>Guardar transferencia</button>
+            </>
+          )}
         </form>
       </Modal>
 

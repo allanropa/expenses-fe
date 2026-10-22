@@ -82,6 +82,7 @@ describe("views render their heading", () => {
 describe("add buttons open their dialog", () => {
   it.each([
     ["Agregar cuenta", <AccountsView />],
+    ["Transferir", <AccountsView />],
     ["Agregar tarjeta", <CardsView />],
     ["Agregar préstamo", <LoansView />],
     ["Agregar presupuesto", <BudgetsView />],

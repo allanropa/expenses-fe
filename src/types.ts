@@ -24,6 +24,7 @@ export type AccountMovement = {
 };
 export type Transaction = {
   id: number;
+  entry_type: "transaction" | "transfer";
   transaction_type: string;
   amount: string;
   currency: string;
@@ -33,7 +34,8 @@ export type Transaction = {
   account_id: number | null;
   card_id: number | null;
   credit_purchase_id: number | null;
-  category_id: number;
+  category_id: number | null;
+  destination_account_id: number | null;
   payment_method: string;
   description: string | null;
   notes: string | null;
@@ -186,6 +188,7 @@ export type Dashboard = {
   }[];
   recent_transactions: {
     id: number;
+    entry_type: "transaction" | "transfer";
     transaction_type: string;
     amount: string;
     currency: string;
@@ -194,7 +197,8 @@ export type Dashboard = {
     transaction_date: string;
     payment_method: string;
     description: string | null;
-    category_id: number;
+    category_id: number | null;
     source: string;
+    destination: string | null;
   }[];
 };

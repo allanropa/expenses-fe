@@ -26,6 +26,7 @@ import {
 import type { Session } from "./types";
 import { settingsApi, type UserSettings } from "./resources/settings";
 import { transactionsApi, type NewTransaction } from "./resources/transactions";
+import { transfersApi, type NewTransfer } from "./resources/transfers";
 import { dashboardApi } from "./resources/dashboard";
 import { useSession } from "./session";
 
@@ -92,6 +93,13 @@ export function useCreateCategory() {
 
 export function useArchiveCategory() {
   return useWrite((csrf, id: number) => categoriesApi.remove(csrf, id), [keys.categories]);
+}
+
+export function useCreateTransfer() {
+  return useWrite(
+    (csrf, body: NewTransfer) => transfersApi.create(csrf, body),
+    [keys.accounts, keys.dashboard],
+  );
 }
 
 export function useLoans(params?: { limit?: number; offset?: number }) {

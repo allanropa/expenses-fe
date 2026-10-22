@@ -45,8 +45,8 @@ export function TransactionsView() {
   const list = transactions.data ?? [];
   const addModal = useModal();
   const detailModal = useModal();
-  const [detailId, setDetailId] = useState<number | null>(null);
-  const detailTransaction = list.find((item) => item.id === detailId);
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const detailTransaction = list.find((item) => `${item.entry_type}-${item.id}` === detailKey);
 
   function sourceName(item: Transaction): string | null {
     if (item.card_id !== null) {
@@ -58,6 +58,14 @@ export function TransactionsView() {
       );
     }
     return null;
+  }
+
+  function destinationName(item: Transaction): string | null {
+    if (item.entry_type !== "transfer" || item.destination_account_id == null) return null;
+    return (
+      accountList.find((account) => account.id === item.destination_account_id)?.name ??
+      `Cuenta #${item.destination_account_id}`
+    );
   }
 
   const defaults: FormState = {
@@ -358,12 +366,17 @@ export function TransactionsView() {
               <div className="list-item" key={item.id}>
                 <div>
                   <strong>
-                    {item.description || item.transaction_type}
+                    {item.description ||
+                      (item.transaction_type === "transfer"
+                        ? "Transferencia"
+                        : item.transaction_type)}
+                    {item.entry_type === "transfer" && <span className="chip">Transferencia</span>}
                     {item.transaction_type === "payment" && <span className="chip">Pago</span>}
                   </strong>
                   <small>
                     {item.transaction_date} · {item.currency}
                     {sourceName(item) ? ` · ${sourceName(item)}` : ""}
+                    {destinationName(item) ? ` → ${destinationName(item)}` : ""}
                   </small>
                 </div>
                 <b className={item.transaction_type === "income" ? "positive" : "negative"}>
@@ -375,11 +388,11 @@ export function TransactionsView() {
                 </b>
                 <ActionMenu
                   onDetails={() => {
-                    setDetailId(item.id);
+                    setDetailKey(`${item.entry_type}-${item.id}`);
                     detailModal.openModal();
                   }}
                   onDelete={
-                    item.transaction_type !== "payment"
+                    item.entry_type === "transaction" && item.transaction_type !== "payment"
                       ? () => removeTransaction.mutate(item.id)
                       : undefined
                   }
@@ -420,9 +433,12 @@ export function TransactionsView() {
                   `Tarjeta #${detailTransaction.card_id}`)
             }
             categoryName={
-              categoryList.find((c) => c.id === detailTransaction.category_id)?.name ??
-              `Categoría #${detailTransaction.category_id}`
+              detailTransaction.category_id === null
+                ? null
+                : (categoryList.find((c) => c.id === detailTransaction.category_id)?.name ??
+                  `Categoría #${detailTransaction.category_id}`)
             }
+            destinationName={destinationName(detailTransaction)}
           />
         )}
       </Modal>
@@ -435,17 +451,27 @@ function TransactionDetails({
   accountName,
   cardName,
   categoryName,
+  destinationName,
 }: {
   transaction: Transaction;
   accountName: string | null;
   cardName: string | null;
-  categoryName: string;
+  categoryName: string | null;
+  destinationName: string | null;
 }) {
   const typeLabel =
-    ({ expense: "Gasto", income: "Ingreso", payment: "Pago" } as Record<string, string>)[
-      transaction.transaction_type
-    ] ?? transaction.transaction_type;
-  const methodLabel = transaction.payment_method === "credit" ? "Tarjeta" : "Cuenta";
+    (
+      { expense: "Gasto", income: "Ingreso", payment: "Pago", transfer: "Transferencia" } as Record<
+        string,
+        string
+      >
+    )[transaction.transaction_type] ?? transaction.transaction_type;
+  const methodLabel =
+    transaction.entry_type === "transfer"
+      ? "Transferencia entre cuentas"
+      : transaction.payment_method === "credit"
+        ? "Tarjeta"
+        : "Cuenta";
   const source = cardName ?? accountName ?? "Sin cuenta ni tarjeta";
   return (
     <section className="detail-panel">
@@ -473,13 +499,16 @@ function TransactionDetails({
         </div>
         <div>
           <small>Fuente</small>
-          <strong>{source}</strong>
+          <strong>
+            {source}
+            {destinationName ? ` → ${destinationName}` : ""}
+          </strong>
         </div>
       </div>
       <h4>Relacionado con</h4>
       <div className="row">
-        <span>Categoría</span>
-        <b>{categoryName}</b>
+        <span>{transaction.entry_type === "transfer" ? "Tipo" : "Categoría"}</span>
+        <b>{categoryName ?? "Transferencia entre cuentas"}</b>
       </div>
       {transaction.notes && (
         <>

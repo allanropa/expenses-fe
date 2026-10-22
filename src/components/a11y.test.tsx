@@ -111,6 +111,7 @@ describe("the axe check itself", () => {
 describe("open add dialogs have no axe violations", () => {
   it.each([
     ["Agregar cuenta", <AccountsView />],
+    ["Transferir", <AccountsView />],
     ["Agregar tarjeta", <CardsView />],
     ["Agregar préstamo", <LoansView />],
     ["Agregar presupuesto", <BudgetsView />],
