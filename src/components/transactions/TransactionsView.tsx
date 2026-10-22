@@ -2,7 +2,9 @@ import { FormEvent, useState } from "react";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage } from "../common";
+import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { useModal } from "../../hooks";
+import type { Transaction } from "../../types";
 import {
   useAccounts,
   useAddCardPurchase,
@@ -39,6 +41,21 @@ export function TransactionsView() {
   const cardList = cards.data ?? [];
   const categoryList = categories.data ?? [];
   const list = transactions.data ?? [];
+  const detailModal = useModal();
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const detailTransaction = list.find((item) => item.id === detailId);
+
+  function sourceName(item: Transaction): string | null {
+    if (item.card_id !== null) {
+      return cardList.find((c) => c.id === item.card_id)?.name ?? `Tarjeta #${item.card_id}`;
+    }
+    if (item.account_id !== null) {
+      return (
+        accountList.find((a) => a.id === item.account_id)?.name ?? `Cuenta #${item.account_id}`
+      );
+    }
+    return null;
+  }
 
   const defaults: FormState = {
     kind: "debit",
@@ -336,6 +353,7 @@ export function TransactionsView() {
                   </strong>
                   <small>
                     {item.transaction_date} · {item.currency}
+                    {sourceName(item) ? ` · ${sourceName(item)}` : ""}
                   </small>
                 </div>
                 <b className={item.transaction_type === "income" ? "positive" : "negative"}>
@@ -345,17 +363,113 @@ export function TransactionsView() {
                     <small> ≈ {money(item.original_amount, item.original_currency)}</small>
                   )}
                 </b>
-                {item.transaction_type !== "payment" && (
-                  <ActionMenu
-                    onDetails={() => {}}
-                    onDelete={() => removeTransaction.mutate(item.id)}
-                  />
-                )}
+                <ActionMenu
+                  onDetails={() => {
+                    setDetailId(item.id);
+                    detailModal.openModal();
+                  }}
+                  onDelete={
+                    item.transaction_type !== "payment"
+                      ? () => removeTransaction.mutate(item.id)
+                      : undefined
+                  }
+                />
               </div>
             ))
           )}
         </section>
       </div>
+      <Modal
+        open={detailModal.open}
+        title="Detalle del movimiento"
+        onClose={() => detailModal.closeModal()}
+      >
+        {detailTransaction && (
+          <TransactionDetails
+            transaction={detailTransaction}
+            accountName={
+              detailTransaction.account_id === null
+                ? null
+                : (accountList.find((a) => a.id === detailTransaction.account_id)?.name ??
+                  `Cuenta #${detailTransaction.account_id}`)
+            }
+            cardName={
+              detailTransaction.card_id === null
+                ? null
+                : (cardList.find((c) => c.id === detailTransaction.card_id)?.name ??
+                  `Tarjeta #${detailTransaction.card_id}`)
+            }
+            categoryName={
+              categoryList.find((c) => c.id === detailTransaction.category_id)?.name ??
+              `Categoría #${detailTransaction.category_id}`
+            }
+          />
+        )}
+      </Modal>
     </>
+  );
+}
+
+function TransactionDetails({
+  transaction,
+  accountName,
+  cardName,
+  categoryName,
+}: {
+  transaction: Transaction;
+  accountName: string | null;
+  cardName: string | null;
+  categoryName: string;
+}) {
+  const typeLabel =
+    ({ expense: "Gasto", income: "Ingreso", payment: "Pago" } as Record<string, string>)[
+      transaction.transaction_type
+    ] ?? transaction.transaction_type;
+  const methodLabel = transaction.payment_method === "credit" ? "Tarjeta" : "Cuenta";
+  const source = cardName ?? accountName ?? "Sin cuenta ni tarjeta";
+  return (
+    <section className="detail-panel">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">{typeLabel}</p>
+          <h3>{transaction.description || typeLabel}</h3>
+          <p className="muted">{transaction.transaction_date}</p>
+        </div>
+      </div>
+      <div className="detail-grid">
+        <div>
+          <small>Monto</small>
+          <strong>{money(transaction.amount, transaction.currency)}</strong>
+        </div>
+        {transaction.original_amount != null && transaction.original_currency && (
+          <div>
+            <small>Monto original</small>
+            <strong>{money(transaction.original_amount, transaction.original_currency)}</strong>
+          </div>
+        )}
+        <div>
+          <small>Medio</small>
+          <strong>{methodLabel}</strong>
+        </div>
+      </div>
+      <p className="muted">{source}</p>
+      <h4>Relacionado con</h4>
+      <div className="row">
+        <span>Categoría</span>
+        <b>{categoryName}</b>
+      </div>
+      {transaction.credit_purchase_id !== null && (
+        <div className="row">
+          <span>Compra a crédito</span>
+          <b>#{transaction.credit_purchase_id}</b>
+        </div>
+      )}
+      {transaction.notes && (
+        <>
+          <h4>Notas</h4>
+          <p>{transaction.notes}</p>
+        </>
+      )}
+    </section>
   );
 }
