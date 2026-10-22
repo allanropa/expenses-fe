@@ -1,7 +1,7 @@
 import { api } from "../api";
-import type { Category } from "../types";
+import type { Category, CategoryKind } from "../types";
 
-export type NewCategory = { name: string; kind: string };
+export type NewCategory = { name: string; kind: CategoryKind };
 
 export const categoriesApi = {
   list: () => api<Category[]>("/api/categories"),

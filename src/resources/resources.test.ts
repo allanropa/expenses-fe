@@ -3,6 +3,7 @@ import { accountsApi } from "./accounts";
 import { authApi } from "./auth";
 import { budgetsApi } from "./budgets";
 import { cardsApi } from "./cards";
+import { categoriesApi } from "./categories";
 import { loansApi } from "./loans";
 import { settingsApi } from "./settings";
 import { transactionsApi } from "./transactions";
@@ -135,6 +136,16 @@ describe("resource modules send the same requests as the views did", () => {
     expect(call.url).toMatch(/\/api\/transactions\/9$/);
     expect(call.init.method).toBe("DELETE");
     expect(headers(call).get("X-CSRF-Token")).toBe("tok");
+  });
+
+  it("creates and archives categories with CSRF protection", async () => {
+    await categoriesApi.create("tok", { name: "Mascotas", kind: "expense" });
+    await categoriesApi.remove("tok", 9);
+    expect(calls[0].url).toMatch(/\/api\/categories$/);
+    expect(calls[0].init.method).toBe("POST");
+    expect(headers(calls[0]).get("X-CSRF-Token")).toBe("tok");
+    expect(calls[1].url).toMatch(/\/api\/categories\/9$/);
+    expect(calls[1].init.method).toBe("DELETE");
   });
 
   it("reads budget summaries without a CSRF token", async () => {

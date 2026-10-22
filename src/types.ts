@@ -1,6 +1,7 @@
 export type User = { id: number; email: string; display_name: string };
 export type Session = { user: User; csrf_token: string };
-export type Category = { id: number; name: string; kind: string; is_archived: boolean };
+export type CategoryKind = "income" | "expense" | "both";
+export type Category = { id: number; name: string; kind: CategoryKind; is_archived: boolean };
 export type Account = {
   id: number;
   name: string;

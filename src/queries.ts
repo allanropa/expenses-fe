@@ -15,7 +15,7 @@ import {
   type NewCard,
   type NewCardPurchase,
 } from "./resources/cards";
-import { categoriesApi } from "./resources/categories";
+import { categoriesApi, type NewCategory } from "./resources/categories";
 import {
   loansApi,
   type LoanExtraPrincipalInput,
@@ -84,6 +84,14 @@ export function useCardPurchases(id: MaybeId, params?: { limit?: number; offset?
 
 export function useCategories() {
   return useQuery({ queryKey: keys.categories, queryFn: () => categoriesApi.list() });
+}
+
+export function useCreateCategory() {
+  return useWrite((csrf, body: NewCategory) => categoriesApi.create(csrf, body), [keys.categories]);
+}
+
+export function useArchiveCategory() {
+  return useWrite((csrf, id: number) => categoriesApi.remove(csrf, id), [keys.categories]);
 }
 
 export function useLoans(params?: { limit?: number; offset?: number }) {
