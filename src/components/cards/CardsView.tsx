@@ -60,9 +60,19 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
   const sourceDecimals = selectedAccount?.currency === "COP" ? 0 : 2;
   const sourceAmount =
     isMultiCurrency && rate ? multiplyAmount(capitalTotal, rate, sourceDecimals) : "";
+  const sourceExtra =
+    isMultiCurrency && rate ? multiplyAmount(extraTotal, rate, sourceDecimals) : extraTotal;
+  const totalSource = sumAmounts([sourceAmount || capitalTotal, sourceExtra]);
+  const debt = card.data.currencies.find((c) => c.currency === currency)?.outstanding_debt ?? "0";
+  const capitalExceedsDebt = isPositiveAmount(sumAmounts([capitalTotal, `-${debt}`]));
+  const accountExceedsBalance = Boolean(
+    selectedAccount &&
+    isPositiveAmount(sumAmounts([totalSource, `-${selectedAccount.current_balance}`])),
+  );
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!source || !isPositiveAmount(capitalTotal)) return;
+    if (!source || !isPositiveAmount(capitalTotal) || capitalExceedsDebt || accountExceedsBalance)
+      return;
     const extras = lines
       .filter((l) => l.kind !== "capital" && l.amount)
       .map((l) => ({
@@ -90,13 +100,19 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
   return (
     <div className="stack">
       <p className="muted">
-        Pagando: <strong>{card.data.name}</strong> · Deuda {currency}:{" "}
-        {money(
-          card.data.currencies.find((c) => c.currency === currency)?.outstanding_debt ?? "0",
-          currency,
-        )}
+        Pagando: <strong>{card.data.name}</strong> · Deuda {currency}: {money(debt, currency)}
       </p>
       <ErrorMessage error={recordPayment.error} />
+      {capitalExceedsDebt && (
+        <p className="error" role="alert">
+          El abono supera la deuda pendiente.
+        </p>
+      )}
+      {accountExceedsBalance && (
+        <p className="error" role="alert">
+          El pago supera el saldo disponible.
+        </p>
+      )}
       <form className="stack" onSubmit={submit}>
         <label>
           Moneda
@@ -123,6 +139,11 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
               </option>
             ))}
           </select>
+          {selectedAccount && (
+            <small className="muted">
+              Disponible: {money(selectedAccount.current_balance, selectedAccount.currency)}
+            </small>
+          )}
         </label>
         {isMultiCurrency && (
           <label>
@@ -228,7 +249,15 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
             </strong>
           </p>
         )}
-        <button disabled={!source || !isPositiveAmount(capitalTotal) || (isMultiCurrency && !rate)}>
+        <button
+          disabled={
+            !source ||
+            !isPositiveAmount(capitalTotal) ||
+            (isMultiCurrency && !rate) ||
+            capitalExceedsDebt ||
+            accountExceedsBalance
+          }
+        >
           Registrar pago
         </button>
       </form>

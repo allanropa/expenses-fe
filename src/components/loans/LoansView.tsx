@@ -67,9 +67,26 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   const paymentTotal = sumAmounts([capitalTotal, interestTotal]);
   const expenseCategories = (categories.data ?? []).filter((c) => c.kind !== "income");
   const matching = (accounts.data ?? []).filter((a) => a.currency === loan.currency);
+  const selectedSource = matching.find((account) => account.id === Number(source));
+  const extraChargeTotal = sumAmounts(lines.filter((l) => l.kind === "gasto").map((l) => l.amount));
+  const capitalExceedsBalance = isPositiveAmount(
+    sumAmounts([capitalTotal, `-${loan.outstanding_principal}`]),
+  );
+  const accountExceedsBalance = Boolean(
+    selectedSource &&
+    isPositiveAmount(
+      sumAmounts([paymentTotal, extraChargeTotal, `-${selectedSource.current_balance}`]),
+    ),
+  );
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!source || !isPositiveAmount(paymentTotal)) return;
+    if (
+      !source ||
+      !isPositiveAmount(paymentTotal) ||
+      capitalExceedsBalance ||
+      accountExceedsBalance
+    )
+      return;
     const extras = lines
       .filter((l) => l.kind === "gasto" && l.amount)
       .map((l) => ({
@@ -98,6 +115,16 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         {money(loan.outstanding_principal, loan.currency)}
       </p>
       <ErrorMessage error={recordPayment.error ?? accounts.error ?? categories.error} />
+      {capitalExceedsBalance && (
+        <p className="error" role="alert">
+          El abono supera el capital pendiente.
+        </p>
+      )}
+      {accountExceedsBalance && (
+        <p className="error" role="alert">
+          El pago supera el saldo disponible.
+        </p>
+      )}
       <form className="stack" onSubmit={submit}>
         <label>
           Cuenta origen
@@ -109,6 +136,11 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
               </option>
             ))}
           </select>
+          {selectedSource && (
+            <small className="muted">
+              Disponible: {money(selectedSource.current_balance, selectedSource.currency)}
+            </small>
+          )}
         </label>
         <label>
           Fecha
@@ -178,7 +210,16 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
             {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)})
           </p>
         )}
-        <button disabled={!source || !isPositiveAmount(paymentTotal)}>Registrar pago</button>
+        <button
+          disabled={
+            !source ||
+            !isPositiveAmount(paymentTotal) ||
+            capitalExceedsBalance ||
+            accountExceedsBalance
+          }
+        >
+          Registrar pago
+        </button>
       </form>
     </div>
   );
