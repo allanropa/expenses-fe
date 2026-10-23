@@ -26,6 +26,13 @@ describe("Modal focus management", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Cerrar");
   });
 
+  it("uses the accessible close control to close the modal", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("closes on Escape and returns focus to the trigger", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "Abrir" });

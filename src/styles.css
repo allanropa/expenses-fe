@@ -356,7 +356,7 @@ nav {
 }
 .modal-close {
   padding: 0.2rem 0.6rem;
-  color: var(--text);
+  color: var(--text) !important;
   background: transparent !important;
   font-size: 1.5rem;
   line-height: 1;
