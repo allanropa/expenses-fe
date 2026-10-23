@@ -3,7 +3,7 @@ import type { Account } from "../../types";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
+import { ActionMenu, ErrorMessage, Modal, MoneyInput, PaginationControls } from "../common";
 import { useForm, useModal } from "../../hooks";
 import {
   useAccount,
@@ -129,10 +129,9 @@ function AccountEditor({ account }: { account: Account }) {
       <form className="inline-form" onSubmit={submitAdjustment}>
         <label>
           Nuevo saldo
-          <input
+          <MoneyInput
             required
-            type="number"
-            step="0.01"
+            currency={account.currency}
             value={adjustment.target_balance}
             onChange={(event) =>
               setAdjustment({ ...adjustment, target_balance: event.target.value })
@@ -446,11 +445,12 @@ export function AccountsView() {
               </label>
               <label>
                 Monto de origen
-                <input
+                <MoneyInput
                   required
-                  min="0.01"
-                  step="0.01"
-                  type="number"
+                  currency={
+                    list.find((account) => account.id === Number(transferForm.source_account_id))
+                      ?.currency ?? "COP"
+                  }
                   value={transferForm.source_amount}
                   onChange={(event) =>
                     setTransferForm({ ...transferForm, source_amount: event.target.value })
@@ -470,11 +470,9 @@ export function AccountsView() {
                   <>
                     <label>
                       Monto de destino
-                      <input
+                      <MoneyInput
                         required
-                        min="0.01"
-                        step="0.01"
-                        type="number"
+                        currency={destination.currency}
                         value={transferForm.destination_amount}
                         onChange={(event) =>
                           setTransferForm({

@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
+import { ActionMenu, ErrorMessage, Modal, MoneyInput, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import type { Transaction } from "../../types";
 import {
@@ -291,11 +291,10 @@ export function TransactionsView() {
 
             <label>
               Monto
-              <input
+              <MoneyInput
                 required
-                type="number"
-                min="0"
-                step="0.01"
+                currency={form.currency}
+                aria-label="Monto"
                 value={form.amount}
                 onChange={(event) => setForm({ ...form, amount: event.target.value })}
               />

@@ -3,7 +3,7 @@ import type { Loan } from "../../types";
 import { money } from "../../utils/formatters";
 import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
+import { ActionMenu, ErrorMessage, Modal, MoneyInput, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -132,11 +132,9 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
               <option value="interes">Interés</option>
               <option value="gasto">Gasto</option>
             </select>
-            <input
+            <MoneyInput
               required
-              type="number"
-              min="0"
-              step="0.01"
+              currency={loan.currency}
               aria-label="Monto"
               placeholder="Monto"
               value={line.amount}
@@ -326,10 +324,8 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
         </label>
         <label>
           Monto a pagar
-          <input
-            type="number"
-            min="0"
-            step="0.01"
+          <MoneyInput
+            currency={current.currency}
             value={scheduledAmount}
             onChange={(e) => setScheduledAmount(e.target.value)}
             placeholder={current.installments[0]?.total_amount ?? ""}
@@ -337,10 +333,8 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
         </label>
         <label>
           Abono extra a capital
-          <input
-            type="number"
-            min="0"
-            step="0.01"
+          <MoneyInput
+            currency={current.currency}
             value={extra}
             onChange={(e) => setExtra(e.target.value)}
           />
@@ -528,11 +522,9 @@ export function LoansView() {
           </label>
           <label>
             Principal
-            <input
+            <MoneyInput
               required
-              type="number"
-              min="0"
-              step="0.01"
+              currency={form.currency}
               value={form.principal_amount}
               onChange={(e) => setForm({ ...form, principal_amount: e.target.value })}
             />

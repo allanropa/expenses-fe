@@ -1,4 +1,13 @@
-import { Component, ErrorInfo, ReactNode, useEffect, useRef } from "react";
+import {
+  Component,
+  ChangeEvent,
+  ErrorInfo,
+  InputHTMLAttributes,
+  ReactNode,
+  useEffect,
+  useRef,
+} from "react";
+import { NumericFormat } from "react-number-format";
 
 interface ModalProps {
   open: boolean;
@@ -98,6 +107,36 @@ interface ActionMenuProps {
   onConfigure?: () => void;
   onPay?: () => void;
   onDelete?: () => void;
+}
+
+export function MoneyInput({
+  currency = "COP",
+  onChange,
+  value,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type" | "defaultValue"> & {
+  currency?: string;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <span className="money-input">
+      <NumericFormat
+        {...props}
+        value={value ?? ""}
+        type="text"
+        valueIsNumericString
+        prefix="$ "
+        thousandSeparator="."
+        decimalSeparator=","
+        decimalScale={currency === "COP" ? 0 : 2}
+        inputMode="decimal"
+        onValueChange={({ value: numericValue }) =>
+          onChange?.({ target: { value: numericValue } } as ChangeEvent<HTMLInputElement>)
+        }
+      />
+    </span>
+  );
 }
 
 export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMenuProps) {

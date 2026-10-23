@@ -3,7 +3,7 @@ import type { Card } from "../../types";
 import { money } from "../../utils/formatters";
 import { toISODateString } from "../../utils/formatters";
 import { isPositiveAmount, multiplyAmount, sumAmounts, sumByCurrency } from "../../utils/amounts";
-import { ActionMenu, ErrorMessage, Modal, PaginationControls } from "../common";
+import { ActionMenu, ErrorMessage, Modal, MoneyInput, PaginationControls } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -160,11 +160,9 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
               <option value="interes">Interés</option>
               <option value="gasto">Gasto</option>
             </select>
-            <input
+            <MoneyInput
               required
-              type="number"
-              min="0"
-              step="0.01"
+              currency={currency}
               aria-label="Monto"
               placeholder="Monto"
               value={line.amount}
@@ -417,11 +415,9 @@ function CardConfigurationForm({ card, onArchived }: { card: Card; onArchived: (
         <h4>Ajustar deuda</h4>
         <label>
           Deuda objetivo
-          <input
+          <MoneyInput
             required
-            type="number"
-            min="0"
-            step="0.01"
+            currency={currency}
             value={targetDebt}
             onChange={(e) => setTargetDebt(e.target.value)}
           />
@@ -629,10 +625,8 @@ export function CardsView() {
           </label>
           <label>
             Cupo de crédito
-            <input
-              type="number"
-              min="0"
-              step="0.01"
+            <MoneyInput
+              currency={form.currency}
               value={form.credit_limit}
               onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
             />

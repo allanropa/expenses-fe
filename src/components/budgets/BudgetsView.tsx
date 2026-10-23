@@ -4,7 +4,7 @@ import type { BudgetInput } from "../../resources/budgets";
 import { money } from "../../utils/formatters";
 import { isPositiveAmount, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal } from "../common";
+import { ActionMenu, ErrorMessage, Modal, MoneyInput } from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -200,11 +200,9 @@ function BudgetConfigurationForm({
         </label>
         <label>
           Monto objetivo
-          <input
+          <MoneyInput
             required
-            type="number"
-            min="1"
-            step="0.01"
+            currency={budget.currency}
             value={targetAmount}
             onChange={(e) => setTargetAmount(e.target.value)}
           />
@@ -490,11 +488,9 @@ export function BudgetsView() {
           </label>
           <label>
             Monto objetivo
-            <input
+            <MoneyInput
               required
-              type="number"
-              min="1"
-              step="0.01"
+              currency={form.currency}
               value={form.target_amount}
               onChange={(e) => setForm({ ...form, target_amount: e.target.value })}
             />
