@@ -25,7 +25,11 @@ import {
 } from "./resources/loans";
 import type { Session } from "./types";
 import { settingsApi, type UserSettings } from "./resources/settings";
-import { transactionsApi, type NewTransaction } from "./resources/transactions";
+import {
+  transactionsApi,
+  type NewTransaction,
+  type TransactionListParams,
+} from "./resources/transactions";
 import { transfersApi, type NewTransfer } from "./resources/transfers";
 import { dashboardApi } from "./resources/dashboard";
 import { useSession } from "./session";
@@ -147,7 +151,7 @@ export function useBudgetSummary(id: MaybeId) {
   });
 }
 
-export function useTransactions(params?: { limit?: number; offset?: number }) {
+export function useTransactions(params?: TransactionListParams) {
   return useQuery({
     queryKey: [...keys.transactions, params],
     queryFn: () => transactionsApi.list(params),

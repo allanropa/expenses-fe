@@ -139,6 +139,20 @@ describe("resource modules send the same requests as the views did", () => {
     expect(headers(call).get("X-CSRF-Token")).toBe("tok");
   });
 
+  it("passes transaction filters to the list endpoint", async () => {
+    await transactionsApi.list({
+      category_id: 2,
+      card_id: 3,
+      transaction_type: "payment",
+      limit: 20,
+      offset: 0,
+    });
+    const call = only();
+    expect(call.url).toMatch(
+      /\/api\/transactions\?category_id=2&card_id=3&transaction_type=payment&limit=20&offset=0$/,
+    );
+  });
+
   it("creates and archives categories with CSRF protection", async () => {
     await categoriesApi.create("tok", { name: "Mascotas", kind: "expense" });
     await categoriesApi.remove("tok", 9);

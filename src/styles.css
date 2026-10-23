@@ -478,6 +478,14 @@ h3 {
 .transaction-list-card {
   grid-column: 1 / -1;
 }
+.transaction-filters {
+  margin-bottom: var(--space-4);
+}
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
 .interest-panel {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(420px, 1.2fr);
@@ -729,6 +737,9 @@ h3 {
   .interest-panel,
   .archive-panel,
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .filter-grid {
     grid-template-columns: 1fr;
   }
   .interest-form,

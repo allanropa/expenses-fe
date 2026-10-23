@@ -20,6 +20,7 @@ export type TransactionListParams = {
   date_to?: string;
   transaction_type?: string;
   account_id?: number;
+  card_id?: number;
   category_id?: number;
   search?: string;
   limit?: number;

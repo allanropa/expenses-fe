@@ -12,6 +12,7 @@ import {
 } from "../common";
 import { useModal } from "../../hooks";
 import type { Transaction } from "../../types";
+import type { TransactionListParams } from "../../resources/transactions";
 import {
   useAccounts,
   useAddCardPurchase,
@@ -39,7 +40,22 @@ type FormState = {
 export function TransactionsView() {
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
-  const transactions = useTransactions({ limit: pageSize, offset: page * pageSize });
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const filters: TransactionListParams = {
+    limit: pageSize,
+    offset: page * pageSize,
+    ...(categoryFilter ? { category_id: Number(categoryFilter) } : {}),
+    ...(sourceFilter.startsWith("account:")
+      ? { account_id: Number(sourceFilter.slice("account:".length)) }
+      : {}),
+    ...(sourceFilter.startsWith("card:")
+      ? { card_id: Number(sourceFilter.slice("card:".length)) }
+      : {}),
+    ...(typeFilter ? { transaction_type: typeFilter } : {}),
+  };
+  const transactions = useTransactions(filters);
   const accounts = useAccounts();
   const cards = useCards();
   const categories = useCategories();
@@ -165,6 +181,66 @@ export function TransactionsView() {
             Gastos {currency}: {money(amount, currency)}
           </span>
         ))}
+      </section>
+
+      <section className="card transaction-filters" aria-label="Filtros de movimientos">
+        <h3>Filtrar movimientos</h3>
+        <div className="filter-grid">
+          <label>
+            Categoría
+            <select
+              value={categoryFilter}
+              onChange={(event) => {
+                setCategoryFilter(event.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">Todas las categorías</option>
+              {categoryList.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Cuenta o tarjeta
+            <select
+              value={sourceFilter}
+              onChange={(event) => {
+                setSourceFilter(event.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">Todas las cuentas y tarjetas</option>
+              {accountList.map((account) => (
+                <option key={`account-${account.id}`} value={`account:${account.id}`}>
+                  Cuenta: {account.name}
+                </option>
+              ))}
+              {cardList.map((card) => (
+                <option key={`card-${card.id}`} value={`card:${card.id}`}>
+                  Tarjeta: {card.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Tipo
+            <select
+              value={typeFilter}
+              onChange={(event) => {
+                setTypeFilter(event.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">Todos los tipos</option>
+              <option value="expense">Gasto</option>
+              <option value="income">Ingreso</option>
+              <option value="payment">Pago</option>
+            </select>
+          </label>
+        </div>
       </section>
 
       <div className="split-grid">
