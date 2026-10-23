@@ -29,6 +29,7 @@ import {
   transactionsApi,
   type NewTransaction,
   type TransactionListParams,
+  type TransactionUpdate,
 } from "./resources/transactions";
 import { transfersApi, type NewTransfer } from "./resources/transfers";
 import { dashboardApi } from "./resources/dashboard";
@@ -332,6 +333,14 @@ export function useCreateTransaction() {
 export function useDeleteTransaction() {
   return useWrite(
     (csrf, id: number) => transactionsApi.remove(csrf, id),
+    [keys.transactions, keys.accounts, keys.cards, keys.dashboard],
+  );
+}
+
+export function useUpdateTransaction() {
+  return useWrite(
+    (csrf, vars: { id: number; body: TransactionUpdate }) =>
+      transactionsApi.update(csrf, vars.id, vars.body),
     [keys.transactions, keys.accounts, keys.cards, keys.dashboard],
   );
 }

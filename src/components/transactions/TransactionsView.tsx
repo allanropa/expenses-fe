@@ -21,6 +21,7 @@ import {
   useCreateTransaction,
   useDeleteTransaction,
   useTransactions,
+  useUpdateTransaction,
 } from "../../queries";
 
 type FormState = {
@@ -62,6 +63,7 @@ export function TransactionsView() {
   const createTransaction = useCreateTransaction();
   const addPurchase = useAddCardPurchase();
   const removeTransaction = useDeleteTransaction();
+  const updateTransaction = useUpdateTransaction();
 
   const accountList = accounts.data ?? [];
   const cardList = cards.data ?? [];
@@ -69,8 +71,13 @@ export function TransactionsView() {
   const list = transactions.data ?? [];
   const addModal = useModal();
   const detailModal = useModal();
+  const editModal = useModal();
   const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
+  const [editDescription, setEditDescription] = useState("");
   const detailTransaction = list.find((item) => `${item.entry_type}-${item.id}` === detailKey);
+  const editTransaction = list.find((item) => `${item.entry_type}-${item.id}` === editKey);
 
   function sourceName(item: Transaction): string | null {
     if (item.card_id !== null) {
@@ -470,6 +477,24 @@ export function TransactionsView() {
                     setDetailKey(`${item.entry_type}-${item.id}`);
                     detailModal.openModal();
                   }}
+                  onEdit={
+                    item.entry_type === "transaction" &&
+                    item.transaction_type !== "payment" &&
+                    item.payment_method !== "credit"
+                      ? () => {
+                          setEditKey(`${item.entry_type}-${item.id}`);
+                          const categoryIds =
+                            (item.category_ids ?? []).length > 0
+                              ? (item.category_ids ?? [])
+                              : item.category_id === null
+                                ? []
+                                : [item.category_id];
+                          setEditCategoryIds(categoryIds.map(String));
+                          setEditDescription(item.description ?? "");
+                          editModal.openModal();
+                        }
+                      : undefined
+                  }
                   onDelete={
                     item.entry_type === "transaction" && item.transaction_type !== "payment"
                       ? () => removeTransaction.mutate(item.id)
@@ -519,6 +544,52 @@ export function TransactionsView() {
             }
             destinationName={destinationName(detailTransaction)}
           />
+        )}
+      </Modal>
+      <Modal open={editModal.open} title="Editar movimiento" onClose={() => editModal.closeModal()}>
+        <ErrorMessage error={updateTransaction.error} />
+        {editTransaction && (
+          <form
+            className="stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (editCategoryIds.length === 0) return;
+              updateTransaction.mutate(
+                {
+                  id: editTransaction.id,
+                  body: {
+                    category_id: Number(editCategoryIds[0]),
+                    category_ids: editCategoryIds.map(Number),
+                    description: editDescription || null,
+                  },
+                },
+                { onSuccess: () => editModal.closeModal() },
+              );
+            }}
+          >
+            <label>
+              Categoría
+              <CategoryPicker
+                categories={categoryList.filter((category) =>
+                  editTransaction.transaction_type === "income"
+                    ? category.kind !== "expense"
+                    : category.kind !== "income",
+                )}
+                selected={editCategoryIds}
+                onChange={setEditCategoryIds}
+              />
+            </label>
+            <label>
+              Descripción
+              <input
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+              />
+            </label>
+            <button disabled={editCategoryIds.length === 0 || updateTransaction.isPending}>
+              Guardar cambios
+            </button>
+          </form>
         )}
       </Modal>
     </>

@@ -104,6 +104,7 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
 
 interface ActionMenuProps {
   onDetails: () => void;
+  onEdit?: () => void;
   onConfigure?: () => void;
   onPay?: () => void;
   onDelete?: () => void;
@@ -197,7 +198,7 @@ export function CategoryPicker(props: {
   return <MultiChoicePicker options={props.categories} {...props} />;
 }
 
-export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMenuProps) {
+export function ActionMenu({ onDetails, onEdit, onConfigure, onPay, onDelete }: ActionMenuProps) {
   const menuRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
@@ -225,6 +226,7 @@ export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMe
       </summary>
       <div className="item-menu-panel">
         <button onClick={onDetails}>Ver detalles</button>
+        {onEdit && <button onClick={onEdit}>Editar</button>}
         {onConfigure && <button onClick={onConfigure}>Configurar</button>}
         {onPay && <button onClick={onPay}>Pagar</button>}
         {onDelete && <button onClick={onDelete}>Anular</button>}
