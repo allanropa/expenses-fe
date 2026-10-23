@@ -11,8 +11,8 @@ import {
   useCloseLoan,
   useCreateLoan,
   useLoan,
+  useLoanPayments,
   useLoans,
-  useRecordLoanExtraPrincipal,
   useRecordLoanPayment,
   useUpdateLoan,
 } from "../../queries";
@@ -36,6 +36,8 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   const categories = useCategories();
   const recordPayment = useRecordLoanPayment();
   const pending = loan.installments.find((i) => i.status !== "paid");
+  const [isAbono, setIsAbono] = useState(false);
+  const [abonoAmount, setAbonoAmount] = useState("");
   const [source, setSource] = useState("");
   const [payDate, setPayDate] = useState(toISODateString());
   const [lines, setLines] = useState<PaymentLine[]>(() =>
@@ -69,20 +71,20 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   const matching = (accounts.data ?? []).filter((a) => a.currency === loan.currency);
   const selectedSource = matching.find((account) => account.id === Number(source));
   const extraChargeTotal = sumAmounts(lines.filter((l) => l.kind === "gasto").map((l) => l.amount));
+  const capitalAmount = isAbono ? abonoAmount : capitalTotal;
   const capitalExceedsBalance = isPositiveAmount(
-    sumAmounts([capitalTotal, `-${loan.outstanding_principal}`]),
+    sumAmounts([capitalAmount, `-${loan.outstanding_principal}`]),
   );
+  const amountToDebit = isAbono ? abonoAmount : sumAmounts([paymentTotal, extraChargeTotal]);
   const accountExceedsBalance = Boolean(
     selectedSource &&
-    isPositiveAmount(
-      sumAmounts([paymentTotal, extraChargeTotal, `-${selectedSource.current_balance}`]),
-    ),
+    isPositiveAmount(sumAmounts([amountToDebit, `-${selectedSource.current_balance}`])),
   );
   function submit(event: FormEvent) {
     event.preventDefault();
     if (
       !source ||
-      !isPositiveAmount(paymentTotal) ||
+      !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(paymentTotal)) ||
       capitalExceedsBalance ||
       accountExceedsBalance
     )
@@ -100,9 +102,16 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         body: {
           source_account_id: Number(source),
           payment_date: payDate,
-          scheduled_amount: paymentTotal,
-          interest_paid: isPositiveAmount(interestTotal) ? interestTotal : undefined,
-          extra_charges: extras.length > 0 ? extras : undefined,
+          scheduled_amount: isAbono ? undefined : paymentTotal,
+          interest_paid: isAbono
+            ? undefined
+            : isPositiveAmount(interestTotal)
+              ? interestTotal
+              : undefined,
+          extra_principal: isAbono ? abonoAmount : "0",
+          recalculate_installments: isAbono,
+          is_abono: isAbono,
+          extra_charges: isAbono ? undefined : extras.length > 0 ? extras : undefined,
         },
       },
       { onSuccess: onDone },
@@ -126,6 +135,10 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         </p>
       )}
       <form className="stack" onSubmit={submit}>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={isAbono} onChange={(e) => setIsAbono(e.target.checked)} />
+          Este pago es un abono a capital
+        </label>
         <label>
           Cuenta origen
           <select required value={source} onChange={(e) => setSource(e.target.value)}>
@@ -151,74 +164,90 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
             onChange={(e) => setPayDate(e.target.value)}
           />
         </label>
-        <h4>Líneas de pago</h4>
-        {lines.map((line, i) => (
-          <div className="row line-row" key={i}>
-            <select
-              aria-label="Tipo de línea"
-              value={line.kind}
-              onChange={(e) => updateLine(i, "kind", e.target.value)}
-              className="line-kind"
-            >
-              <option value="capital">Abono</option>
-              <option value="interes">Interés</option>
-              <option value="gasto">Gasto</option>
-            </select>
+        {isAbono ? (
+          <label>
+            Monto del abono
             <MoneyInput
               required
               currency={loan.currency}
-              aria-label="Monto"
-              placeholder="Monto"
-              value={line.amount}
-              onChange={(e) => updateLine(i, "amount", e.target.value)}
-              className="line-amount"
+              aria-label="Monto del abono"
+              value={abonoAmount}
+              onChange={(e) => setAbonoAmount(e.target.value)}
             />
-            {line.kind === "gasto" && (
-              <select
-                aria-label="Categoría"
-                value={line.category_id}
-                onChange={(e) => updateLine(i, "category_id", e.target.value)}
-                className="line-category"
-              >
-                {expenseCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {line.kind === "gasto" && (
-              <input
-                aria-label="Descripción"
-                placeholder="Descripción"
-                value={line.description}
-                onChange={(e) => updateLine(i, "description", e.target.value)}
-                className="line-description"
-              />
-            )}
-            <button type="button" onClick={() => removeLine(i)} className="line-remove">
-              ×
+          </label>
+        ) : (
+          <>
+            <h4>Líneas de pago</h4>
+            {lines.map((line, i) => (
+              <div className="row line-row" key={i}>
+                <select
+                  aria-label="Tipo de línea"
+                  value={line.kind}
+                  onChange={(e) => updateLine(i, "kind", e.target.value)}
+                  className="line-kind"
+                >
+                  <option value="capital">Abono</option>
+                  <option value="interes">Interés</option>
+                  <option value="gasto">Gasto</option>
+                </select>
+                <MoneyInput
+                  required
+                  currency={loan.currency}
+                  aria-label="Monto"
+                  placeholder="Monto"
+                  value={line.amount}
+                  onChange={(e) => updateLine(i, "amount", e.target.value)}
+                  className="line-amount"
+                />
+                {line.kind === "gasto" && (
+                  <select
+                    aria-label="Categoría"
+                    value={line.category_id}
+                    onChange={(e) => updateLine(i, "category_id", e.target.value)}
+                    className="line-category"
+                  >
+                    {expenseCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {line.kind === "gasto" && (
+                  <input
+                    aria-label="Descripción"
+                    placeholder="Descripción"
+                    value={line.description}
+                    onChange={(e) => updateLine(i, "description", e.target.value)}
+                    className="line-description"
+                  />
+                )}
+                <button type="button" onClick={() => removeLine(i)} className="line-remove">
+                  ×
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addLine}>
+              + Agregar línea
             </button>
-          </div>
-        ))}
-        <button type="button" onClick={addLine}>
-          + Agregar línea
-        </button>
-        {isPositiveAmount(paymentTotal) && (
-          <p>
-            <strong>Total cuota: {money(paymentTotal, loan.currency)}</strong> (abono{" "}
-            {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)})
-          </p>
+            {isPositiveAmount(paymentTotal) && (
+              <p>
+                <strong>Total cuota: {money(paymentTotal, loan.currency)}</strong> (abono{" "}
+                {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)}
+                )
+              </p>
+            )}
+          </>
         )}
         <button
           disabled={
             !source ||
-            !isPositiveAmount(paymentTotal) ||
+            !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(paymentTotal)) ||
             capitalExceedsBalance ||
             accountExceedsBalance
           }
         >
-          Registrar pago
+          {isAbono ? "Registrar abono" : "Registrar pago"}
         </button>
       </form>
     </div>
@@ -296,36 +325,16 @@ function LoanConfigurationForm({ loan, onClosed }: { loan: Loan; onClosed: () =>
 
 function LoanDetailsContent({ loanId }: { loanId: number }) {
   const loan = useLoan(loanId);
-  const accounts = useAccounts();
-  const recordExtra = useRecordLoanExtraPrincipal();
-  const [accountChoice, setAccountChoice] = useState<string | null>(null);
-  const [extra, setExtra] = useState("");
-  const [scheduledAmount, setScheduledAmount] = useState("");
-  const [date, setDate] = useState(toISODateString());
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "pending">("paid");
+  const [paymentPage, setPaymentPage] = useState(0);
+  const [paymentPageSize, setPaymentPageSize] = useState(10);
+  const payments = useLoanPayments(loanId, {
+    status: paymentStatus,
+    limit: paymentPageSize,
+    offset: paymentPage * paymentPageSize,
+  });
   if (loan.error) return <ErrorMessage error={loan.error} />;
   if (!loan.data) return <p className="muted">Cargando préstamo...</p>;
-  const matches = (accounts.data ?? []).filter((a) => a.currency === loan.data.currency);
-  const accountId = accountChoice ?? String(matches[0]?.id ?? "");
-  function pay(event: FormEvent) {
-    event.preventDefault();
-    recordExtra.mutate(
-      {
-        id: loanId,
-        body: {
-          source_account_id: Number(accountId),
-          payment_date: date,
-          scheduled_amount: scheduledAmount || undefined,
-          extra_principal: extra || "0",
-        },
-      },
-      {
-        onSuccess: () => {
-          setExtra("");
-          setScheduledAmount("");
-        },
-      },
-    );
-  }
   const current = loan.data;
   return (
     <>
@@ -351,53 +360,60 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
           </strong>
         </div>
       </div>
-      <ErrorMessage error={recordExtra.error ?? accounts.error} />
-      <form className="inline-form" onSubmit={pay}>
-        <label>
-          Cuenta origen
-          <select required value={accountId} onChange={(e) => setAccountChoice(e.target.value)}>
-            {matches.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Monto a pagar
-          <MoneyInput
-            currency={current.currency}
-            value={scheduledAmount}
-            onChange={(e) => setScheduledAmount(e.target.value)}
-            placeholder={current.installments[0]?.total_amount ?? ""}
-          />
-        </label>
-        <label>
-          Abono extra a capital
-          <MoneyInput
-            currency={current.currency}
-            value={extra}
-            onChange={(e) => setExtra(e.target.value)}
-          />
-        </label>
-        <label>
-          Fecha
-          <input required type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <button>Registrar pago</button>
-      </form>
-      <h4>Plan de cuotas</h4>
-      {current.installments.slice(0, 12).map((item) => (
-        <div className="row" key={item.installment_number}>
-          <span>
-            Cuota {item.installment_number}
-            <small>
-              {item.due_date} · {item.status}
-            </small>
-          </span>
-          <b>{money(item.total_amount, current.currency)}</b>
-        </div>
-      ))}
+      <div className="loan-payments-heading">
+        <h4>Pagos</h4>
+        <select
+          aria-label="Estado de pagos"
+          value={paymentStatus}
+          onChange={(event) => {
+            setPaymentStatus(event.target.value as "paid" | "pending");
+            setPaymentPage(0);
+          }}
+        >
+          <option value="paid">Realizados</option>
+          <option value="pending">Pendientes</option>
+        </select>
+      </div>
+      {payments.error ? (
+        <ErrorMessage error={payments.error} />
+      ) : payments.isPending ? (
+        <p className="muted">Cargando pagos...</p>
+      ) : payments.data?.length === 0 ? (
+        <p className="muted">
+          {paymentStatus === "paid" ? "No hay pagos registrados." : "No hay pagos pendientes."}
+        </p>
+      ) : (
+        payments.data?.map((payment) => (
+          <div className="row" key={payment.id}>
+            <span>
+              {paymentStatus === "pending"
+                ? "Vence "
+                : payment.kind === "abono"
+                  ? "Abono "
+                  : "Pago "}
+              {payment.date}
+              <small>
+                Capital {money(payment.principal_amount, current.currency)} · Interés{" "}
+                {money(payment.interest_amount, current.currency)}
+                {payment.kind === "abono" && (
+                  <> · Abono extra {money(payment.extra_principal, current.currency)}</>
+                )}
+              </small>
+            </span>
+            <b>{money(payment.amount, current.currency)}</b>
+          </div>
+        ))
+      )}
+      <PaginationControls
+        page={paymentPage}
+        pageSize={paymentPageSize}
+        itemCount={payments.data?.length ?? 0}
+        onPageChange={setPaymentPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPaymentPage(0);
+          setPaymentPageSize(nextPageSize);
+        }}
+      />
     </>
   );
 }
@@ -519,7 +535,12 @@ export function LoansView() {
               </div>
               <b>{money(loan.outstanding_principal, loan.currency)}</b>
               {showArchived ? (
-                <span className="muted">Cerrado</span>
+                <ActionMenu
+                  onDetails={() => {
+                    setDetailId(loan.id);
+                    detailModal.openModal();
+                  }}
+                />
               ) : (
                 <ActionMenu
                   onDetails={() => {

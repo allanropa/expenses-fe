@@ -1,5 +1,5 @@
 import { api } from "../api";
-import type { Loan } from "../types";
+import type { Loan, LoanPaymentView } from "../types";
 
 type Id = number | string;
 
@@ -22,8 +22,11 @@ export type LoanUpdate = {
 export type LoanPaymentInput = {
   source_account_id: number;
   payment_date: string;
-  scheduled_amount: string;
+  scheduled_amount?: string;
   interest_paid?: string;
+  extra_principal?: string;
+  recalculate_installments?: boolean;
+  is_abono?: boolean;
   extra_charges?: { amount: string; category_id?: number; description: string }[];
 };
 
@@ -32,6 +35,8 @@ export type LoanExtraPrincipalInput = {
   payment_date: string;
   scheduled_amount?: string;
   extra_principal: string;
+  recalculate_installments?: boolean;
+  is_abono?: boolean;
 };
 
 export const loansApi = {
@@ -44,6 +49,14 @@ export const loansApi = {
       })}`,
     ),
   get: (id: Id) => api<Loan>(`/api/loans/${id}`),
+  payments: (id: Id, params: { status: "paid" | "pending"; limit: number; offset: number }) =>
+    api<LoanPaymentView[]>(
+      `/api/loans/${id}/payments?${new URLSearchParams({
+        status: params.status,
+        limit: String(params.limit),
+        offset: String(params.offset),
+      })}`,
+    ),
   create: (csrf: string, body: NewLoan) =>
     api("/api/loans", { method: "POST", csrf, body: JSON.stringify(body) }),
   update: (csrf: string, id: Id, body: LoanUpdate) =>

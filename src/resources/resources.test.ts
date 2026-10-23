@@ -85,6 +85,12 @@ describe("resource modules send the same requests as the views did", () => {
     expect(headers(call).get("Idempotency-Key")).toBeTruthy();
   });
 
+  it("lists paginated loan payments by status", async () => {
+    await loansApi.payments(4, { status: "pending", limit: 10, offset: 20 });
+    const call = only();
+    expect(call.url).toMatch(/\/api\/loans\/4\/payments\?status=pending&limit=10&offset=20$/);
+  });
+
   it("saves a card interest rate without an Idempotency-Key, as before", async () => {
     await cardsApi.saveInterestRate("tok", 3, {
       currency: "COP",

@@ -547,6 +547,20 @@ h3 {
   padding: 0.8rem;
   background: var(--surface-2);
 }
+.loan-payment-sections {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+.loan-payments-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.loan-payments-heading h4 {
+  margin-bottom: 0;
+}
 .detail-grid small {
   color: var(--text-muted);
 }
@@ -736,7 +750,8 @@ h3 {
   .split-grid,
   .interest-panel,
   .archive-panel,
-  .detail-grid {
+  .detail-grid,
+  .loan-payment-sections {
     grid-template-columns: 1fr;
   }
   .filter-grid {

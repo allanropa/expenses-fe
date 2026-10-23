@@ -131,6 +131,16 @@ export function useLoan(id: MaybeId) {
   });
 }
 
+export function useLoanPayments(
+  id: MaybeId,
+  params: { status: "paid" | "pending"; limit: number; offset: number },
+) {
+  return useQuery({
+    queryKey: [...keys.loans, id, "payments", params],
+    queryFn: isSet(id) ? () => loansApi.payments(id, params) : skipToken,
+  });
+}
+
 export function useBudgets(archived = false) {
   return useQuery({
     queryKey: [...keys.budgets, { archived }],

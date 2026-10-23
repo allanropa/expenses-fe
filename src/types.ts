@@ -137,6 +137,17 @@ export type Loan = {
   status: string;
   installments: LoanInstallment[];
 };
+export type LoanPaymentView = {
+  id: number;
+  status: "paid" | "pending";
+  kind: "payment" | "abono";
+  date: string;
+  amount: string;
+  principal_amount: string;
+  interest_amount: string;
+  extra_principal: string;
+  notes: string | null;
+};
 export type CardPayment = {
   id: number;
   card_id: number;
