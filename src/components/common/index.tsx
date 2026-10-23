@@ -101,9 +101,31 @@ interface ActionMenuProps {
 }
 
 export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMenuProps) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const menu = menuRef.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.removeAttribute("open");
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, []);
+
+  function closeOtherMenus() {
+    document.querySelectorAll<HTMLDetailsElement>("details.item-menu[open]").forEach((menu) => {
+      if (menu !== menuRef.current) menu.removeAttribute("open");
+    });
+  }
+
   return (
-    <details className="item-menu">
-      <summary aria-label="Acciones">•••</summary>
+    <details ref={menuRef} className="item-menu">
+      <summary aria-label="Acciones" onClick={closeOtherMenus}>
+        •••
+      </summary>
       <div className="item-menu-panel">
         <button onClick={onDetails}>Ver detalles</button>
         {onConfigure && <button onClick={onConfigure}>Configurar</button>}
