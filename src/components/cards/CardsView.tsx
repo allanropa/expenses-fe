@@ -9,6 +9,7 @@ import {
   useAccounts,
   useAdjustCardDebt,
   useArchiveCard,
+  useUnarchiveCard,
   useCard,
   useCardPurchases,
   useCards,
@@ -448,8 +449,10 @@ function CardConfigurationForm({ card, onArchived }: { card: Card; onArchived: (
 }
 
 export function CardsView() {
-  const cards = useCards();
+  const [showArchived, setShowArchived] = useState(false);
+  const cards = useCards(showArchived);
   const createCard = useCreateCard();
+  const unarchive = useUnarchiveCard();
   const addModal = useModal();
   const detailModal = useModal();
   const configModal = useModal();
@@ -517,6 +520,22 @@ export function CardsView() {
           </span>
         ))}
       </section>
+      <div className="list-tabs" aria-label="Tarjetas">
+        <button
+          type="button"
+          className={!showArchived ? "active" : ""}
+          onClick={() => setShowArchived(false)}
+        >
+          Activas
+        </button>
+        <button
+          type="button"
+          className={showArchived ? "active" : ""}
+          onClick={() => setShowArchived(true)}
+        >
+          Archivadas
+        </button>
+      </div>
       <section className="card list-card">
         <ErrorMessage error={cards.error} />
         {cards.isPending && !cards.error ? (
@@ -534,20 +553,30 @@ export function CardsView() {
                 </small>
               </div>
               <b>{card.currencies.map((c) => money(c.outstanding_debt, c.currency)).join(" / ")}</b>
-              <ActionMenu
-                onDetails={() => {
-                  setDetailId(card.id);
-                  detailModal.openModal();
-                }}
-                onConfigure={() => {
-                  setConfigId(card.id);
-                  configModal.openModal();
-                }}
-                onPay={() => {
-                  setPayId(card.id);
-                  payModal.openModal();
-                }}
-              />
+              {showArchived ? (
+                <button
+                  type="button"
+                  onClick={() => unarchive.mutate(card.id)}
+                  disabled={unarchive.isPending}
+                >
+                  Desarchivar
+                </button>
+              ) : (
+                <ActionMenu
+                  onDetails={() => {
+                    setDetailId(card.id);
+                    detailModal.openModal();
+                  }}
+                  onConfigure={() => {
+                    setConfigId(card.id);
+                    configModal.openModal();
+                  }}
+                  onPay={() => {
+                    setPayId(card.id);
+                    payModal.openModal();
+                  }}
+                />
+              )}
             </div>
           ))
         )}

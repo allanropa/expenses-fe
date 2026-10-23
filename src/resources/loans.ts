@@ -35,9 +35,13 @@ export type LoanExtraPrincipalInput = {
 };
 
 export const loansApi = {
-  list: (params?: { limit?: number; offset?: number }) =>
+  list: (params?: { limit?: number; offset?: number; archived?: boolean }) =>
     api<Loan[]>(
-      `/api/loans${params ? `?${new URLSearchParams(params as Record<string, string>)}` : ""}`,
+      `/api/loans?${new URLSearchParams({
+        ...(params?.limit === undefined ? {} : { limit: String(params.limit) }),
+        ...(params?.offset === undefined ? {} : { offset: String(params.offset) }),
+        ...(params?.archived ? { archived: "true" } : {}),
+      })}`,
     ),
   get: (id: Id) => api<Loan>(`/api/loans/${id}`),
   create: (csrf: string, body: NewLoan) =>

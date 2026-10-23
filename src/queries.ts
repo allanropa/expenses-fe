@@ -47,8 +47,11 @@ export const keys = {
   session: ["session"],
 };
 
-export function useAccounts() {
-  return useQuery({ queryKey: keys.accounts, queryFn: () => accountsApi.list() });
+export function useAccounts(archived = false) {
+  return useQuery({
+    queryKey: [...keys.accounts, { archived }],
+    queryFn: () => accountsApi.list(archived),
+  });
 }
 
 export function useAccount(id: MaybeId) {
@@ -65,8 +68,11 @@ export function useAccountMovements(id: MaybeId, params?: { limit?: number; offs
   });
 }
 
-export function useCards() {
-  return useQuery({ queryKey: keys.cards, queryFn: () => cardsApi.list() });
+export function useCards(archived = false) {
+  return useQuery({
+    queryKey: [...keys.cards, { archived }],
+    queryFn: () => cardsApi.list(archived),
+  });
 }
 
 export function useCard(id: MaybeId) {
@@ -83,8 +89,11 @@ export function useCardPurchases(id: MaybeId, params?: { limit?: number; offset?
   });
 }
 
-export function useCategories() {
-  return useQuery({ queryKey: keys.categories, queryFn: () => categoriesApi.list() });
+export function useCategories(archived = false) {
+  return useQuery({
+    queryKey: [...keys.categories, { archived }],
+    queryFn: () => categoriesApi.list(archived),
+  });
 }
 
 export function useCreateCategory() {
@@ -95,6 +104,10 @@ export function useArchiveCategory() {
   return useWrite((csrf, id: number) => categoriesApi.remove(csrf, id), [keys.categories]);
 }
 
+export function useUnarchiveCategory() {
+  return useWrite((csrf, id: number) => categoriesApi.unarchive(csrf, id), [keys.categories]);
+}
+
 export function useCreateTransfer() {
   return useWrite(
     (csrf, body: NewTransfer) => transfersApi.create(csrf, body),
@@ -102,7 +115,7 @@ export function useCreateTransfer() {
   );
 }
 
-export function useLoans(params?: { limit?: number; offset?: number }) {
+export function useLoans(params?: { limit?: number; offset?: number; archived?: boolean }) {
   return useQuery({ queryKey: [...keys.loans, params], queryFn: () => loansApi.list(params) });
 }
 
@@ -113,8 +126,11 @@ export function useLoan(id: MaybeId) {
   });
 }
 
-export function useBudgets() {
-  return useQuery({ queryKey: keys.budgets, queryFn: () => budgetsApi.list() });
+export function useBudgets(archived = false) {
+  return useQuery({
+    queryKey: [...keys.budgets, { archived }],
+    queryFn: () => budgetsApi.list(archived),
+  });
 }
 
 export function useBudget(id: MaybeId) {
@@ -186,6 +202,13 @@ export function useArchiveAccount() {
   return useWrite((csrf, id: Id) => accountsApi.archive(csrf, id), [keys.accounts, keys.dashboard]);
 }
 
+export function useUnarchiveAccount() {
+  return useWrite(
+    (csrf, id: Id) => accountsApi.unarchive(csrf, id),
+    [keys.accounts, keys.dashboard],
+  );
+}
+
 export function useCreateCard() {
   return useWrite(
     (csrf, body: NewCard) => cardsApi.create(csrf, body),
@@ -218,6 +241,10 @@ export function useAdjustCardDebt() {
 
 export function useArchiveCard() {
   return useWrite((csrf, id: Id) => cardsApi.archive(csrf, id), [keys.cards, keys.dashboard]);
+}
+
+export function useUnarchiveCard() {
+  return useWrite((csrf, id: Id) => cardsApi.unarchive(csrf, id), [keys.cards, keys.dashboard]);
 }
 
 export function useAddCardPurchase() {
@@ -285,6 +312,10 @@ export function useUpdateBudget() {
 
 export function useArchiveBudget() {
   return useWrite((csrf, id: Id) => budgetsApi.archive(csrf, id), [keys.budgets, keys.dashboard]);
+}
+
+export function useUnarchiveBudget() {
+  return useWrite((csrf, id: Id) => budgetsApi.unarchive(csrf, id), [keys.budgets, keys.dashboard]);
 }
 
 export function useCreateTransaction() {

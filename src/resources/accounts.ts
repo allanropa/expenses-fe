@@ -24,7 +24,8 @@ export type AccountProfile = {
 };
 
 export const accountsApi = {
-  list: () => api<Account[]>("/api/accounts"),
+  list: (archived = false) =>
+    api<Account[]>(archived ? "/api/accounts?archived=true" : "/api/accounts"),
   get: (id: Id) => api<Account>(`/api/accounts/${id}`),
   movements: (id: Id, params?: { limit?: number; offset?: number }) =>
     api<AccountMovement[]>(
@@ -42,4 +43,6 @@ export const accountsApi = {
       body: JSON.stringify(body),
     }),
   archive: (csrf: string, id: Id) => api(`/api/accounts/${id}/archive`, { method: "POST", csrf }),
+  unarchive: (csrf: string, id: Id) =>
+    api(`/api/accounts/${id}/unarchive`, { method: "POST", csrf }),
 };

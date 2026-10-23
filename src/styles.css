@@ -331,6 +331,23 @@ nav {
   padding: var(--space-4);
   background: var(--backdrop);
 }
+.list-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.list-tabs button {
+  padding: 0.45rem 0.8rem;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.list-tabs button.active {
+  color: var(--text) !important;
+  background: var(--surface-2) !important;
+  border-color: var(--border-strong);
+}
 .danger-button {
   color: var(--error) !important;
   background: var(--error-wash) !important;

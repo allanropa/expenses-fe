@@ -11,6 +11,7 @@ import {
   useAccounts,
   useAdjustAccountBalance,
   useArchiveAccount,
+  useUnarchiveAccount,
   useCreateAccount,
   useCreateTransfer,
   useUpdateAccountProfile,
@@ -170,9 +171,11 @@ function AccountEditor({ account }: { account: Account }) {
 }
 
 export function AccountsView() {
-  const accounts = useAccounts();
+  const [showArchived, setShowArchived] = useState(false);
+  const accounts = useAccounts(showArchived);
   const createAccount = useCreateAccount();
   const createTransfer = useCreateTransfer();
+  const unarchive = useUnarchiveAccount();
   const addModal = useModal();
   const transferModal = useModal();
   const detailModal = useModal();
@@ -284,6 +287,23 @@ export function AccountsView() {
         ))}
       </section>
 
+      <div className="list-tabs" aria-label="Cuentas">
+        <button
+          type="button"
+          className={!showArchived ? "active" : ""}
+          onClick={() => setShowArchived(false)}
+        >
+          Activas
+        </button>
+        <button
+          type="button"
+          className={showArchived ? "active" : ""}
+          onClick={() => setShowArchived(true)}
+        >
+          Archivadas
+        </button>
+      </div>
+
       <section className="card list-card">
         <ErrorMessage error={accounts.error} />
         {accounts.isPending && !accounts.error ? (
@@ -300,16 +320,26 @@ export function AccountsView() {
                 </small>
               </div>
               <b>{money(account.current_balance, account.currency)}</b>
-              <ActionMenu
-                onDetails={() => {
-                  setDetailId(account.id);
-                  detailModal.openModal();
-                }}
-                onConfigure={() => {
-                  setConfigId(account.id);
-                  configModal.openModal();
-                }}
-              />
+              {showArchived ? (
+                <button
+                  type="button"
+                  onClick={() => unarchive.mutate(account.id)}
+                  disabled={unarchive.isPending}
+                >
+                  Desarchivar
+                </button>
+              ) : (
+                <ActionMenu
+                  onDetails={() => {
+                    setDetailId(account.id);
+                    detailModal.openModal();
+                  }}
+                  onConfigure={() => {
+                    setConfigId(account.id);
+                    configModal.openModal();
+                  }}
+                />
+              )}
             </div>
           ))
         )}

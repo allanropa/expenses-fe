@@ -73,7 +73,7 @@ export type NewCardPurchase = {
 };
 
 export const cardsApi = {
-  list: () => api<Card[]>("/api/cards"),
+  list: (archived = false) => api<Card[]>(archived ? "/api/cards?archived=true" : "/api/cards"),
   get: (id: Id) => api<Card>(`/api/cards/${id}`),
   purchases: (id: Id, params?: { limit?: number; offset?: number }) =>
     api<Purchase[]>(
@@ -106,6 +106,7 @@ export const cardsApi = {
       body: JSON.stringify(body),
     }),
   archive: (csrf: string, id: Id) => api(`/api/cards/${id}/archive`, { method: "POST", csrf }),
+  unarchive: (csrf: string, id: Id) => api(`/api/cards/${id}/unarchive`, { method: "POST", csrf }),
   addPurchase: (csrf: string, id: Id, body: NewCardPurchase) =>
     api(`/api/cards/${id}/purchases`, {
       method: "POST",

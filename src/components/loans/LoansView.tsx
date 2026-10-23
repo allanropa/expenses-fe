@@ -370,7 +370,8 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
 export function LoansView() {
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
-  const loans = useLoans({ limit: pageSize, offset: page * pageSize });
+  const [showArchived, setShowArchived] = useState(false);
+  const loans = useLoans({ limit: pageSize, offset: page * pageSize, archived: showArchived });
   const accounts = useAccounts();
   const createLoan = useCreateLoan();
   const addModal = useModal();
@@ -444,6 +445,22 @@ export function LoansView() {
           </span>
         ))}
       </section>
+      <div className="list-tabs" aria-label="Préstamos">
+        <button
+          type="button"
+          className={!showArchived ? "active" : ""}
+          onClick={() => setShowArchived(false)}
+        >
+          Activos
+        </button>
+        <button
+          type="button"
+          className={showArchived ? "active" : ""}
+          onClick={() => setShowArchived(true)}
+        >
+          Archivados
+        </button>
+      </div>
       {notice && (
         <p className="success" role="status">
           {notice}
@@ -466,20 +483,24 @@ export function LoansView() {
                 </small>
               </div>
               <b>{money(loan.outstanding_principal, loan.currency)}</b>
-              <ActionMenu
-                onDetails={() => {
-                  setDetailId(loan.id);
-                  detailModal.openModal();
-                }}
-                onConfigure={() => {
-                  setConfigId(loan.id);
-                  configModal.openModal();
-                }}
-                onPay={() => {
-                  setPayId(loan.id);
-                  payModal.openModal();
-                }}
-              />
+              {showArchived ? (
+                <span className="muted">Cerrado</span>
+              ) : (
+                <ActionMenu
+                  onDetails={() => {
+                    setDetailId(loan.id);
+                    detailModal.openModal();
+                  }}
+                  onConfigure={() => {
+                    setConfigId(loan.id);
+                    configModal.openModal();
+                  }}
+                  onPay={() => {
+                    setPayId(loan.id);
+                    payModal.openModal();
+                  }}
+                />
+              )}
             </div>
           ))
         )}

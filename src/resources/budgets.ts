@@ -34,7 +34,8 @@ export type BudgetInput = {
 };
 
 export const budgetsApi = {
-  list: () => api<Budget[]>("/api/budgets"),
+  list: (archived = false) =>
+    api<Budget[]>(archived ? "/api/budgets?archived=true" : "/api/budgets"),
   get: (id: Id) => api<Budget>(`/api/budgets/${id}`),
   summary: (id: Id, params?: { date_from?: string; date_to?: string }) =>
     api<BudgetSummary>(
@@ -45,4 +46,6 @@ export const budgetsApi = {
   update: (csrf: string, id: Id, body: BudgetInput) =>
     api(`/api/budgets/${id}`, { method: "PATCH", csrf, body: JSON.stringify(body) }),
   archive: (csrf: string, id: Id) => api(`/api/budgets/${id}/archive`, { method: "POST", csrf }),
+  unarchive: (csrf: string, id: Id) =>
+    api(`/api/budgets/${id}/unarchive`, { method: "POST", csrf }),
 };

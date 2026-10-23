@@ -7,6 +7,7 @@ import {
   useSettings,
   useUpdateProfile,
   useUpdateSettings,
+  useUnarchiveCategory,
 } from "../../queries";
 import { getInitialTheme, applyTheme, type Theme } from "../../theme";
 import { useSession } from "../../session";
@@ -18,9 +19,11 @@ export function SettingsView() {
   const settings = useSettings();
   const saveProfile = useUpdateProfile();
   const saveSettings = useUpdateSettings();
-  const categories = useCategories();
+  const [showArchived, setShowArchived] = useState(false);
+  const categories = useCategories(showArchived);
   const createCategory = useCreateCategory();
   const archiveCategory = useArchiveCategory();
+  const unarchiveCategory = useUnarchiveCategory();
   const [name, setName] = useState(user.display_name);
   const [draft, setDraft] = useState<{ currency?: string; timezone?: string }>({});
   const [theme, setTheme] = useState<Theme>(getInitialTheme());
@@ -134,6 +137,23 @@ export function SettingsView() {
           <button disabled={createCategory.isPending}>Agregar categoría</button>
         </form>
 
+        <div className="list-tabs" aria-label="Categorías">
+          <button
+            type="button"
+            className={!showArchived ? "active" : ""}
+            onClick={() => setShowArchived(false)}
+          >
+            Activas
+          </button>
+          <button
+            type="button"
+            className={showArchived ? "active" : ""}
+            onClick={() => setShowArchived(true)}
+          >
+            Archivadas
+          </button>
+        </div>
+
         <div className="list-card">
           {categories.data?.map((category) => (
             <div className="list-item" key={category.id}>
@@ -147,14 +167,24 @@ export function SettingsView() {
                       : "Ingreso y gasto"}
                 </small>
               </div>
-              <button
-                className="danger-button"
-                type="button"
-                disabled={archiveCategory.isPending}
-                onClick={() => archiveCategory.mutate(category.id)}
-              >
-                Archivar
-              </button>
+              {showArchived ? (
+                <button
+                  type="button"
+                  disabled={unarchiveCategory.isPending}
+                  onClick={() => unarchiveCategory.mutate(category.id)}
+                >
+                  Desarchivar
+                </button>
+              ) : (
+                <button
+                  className="danger-button"
+                  type="button"
+                  disabled={archiveCategory.isPending}
+                  onClick={() => archiveCategory.mutate(category.id)}
+                >
+                  Archivar
+                </button>
+              )}
             </div>
           ))}
         </div>
