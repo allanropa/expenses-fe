@@ -139,6 +139,64 @@ export function MoneyInput({
   );
 }
 
+export function MultiChoicePicker({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { id: number; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <div className="category-picker">
+      <select
+        aria-label="Categoría"
+        value=""
+        onChange={(event) => {
+          if (event.target.value && !selected.includes(event.target.value)) {
+            onChange([...selected, event.target.value]);
+          }
+        }}
+      >
+        <option value="">Seleccionar categoría</option>
+        {options
+          .filter((category) => !selected.includes(String(category.id)))
+          .map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+      </select>
+      <div className="category-badges">
+        {selected.map((id) => {
+          const category = options.find((item) => String(item.id) === id);
+          return (
+            <span className="category-badge" key={id}>
+              {category?.name ?? `Categoría #${id}`}
+              <button
+                type="button"
+                aria-label={`Quitar ${category?.name ?? `Categoría #${id}`}`}
+                onClick={() => onChange(selected.filter((item) => item !== id))}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function CategoryPicker(props: {
+  categories: { id: number; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return <MultiChoicePicker options={props.categories} {...props} />;
+}
+
 export function ActionMenu({ onDetails, onConfigure, onPay, onDelete }: ActionMenuProps) {
   const menuRef = useRef<HTMLDetailsElement>(null);
 

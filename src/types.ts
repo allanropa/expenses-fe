@@ -35,6 +35,7 @@ export type Transaction = {
   card_id: number | null;
   credit_purchase_id: number | null;
   category_id: number | null;
+  category_ids: number[];
   destination_account_id: number | null;
   payment_method: string;
   description: string | null;
@@ -102,8 +103,11 @@ export type Budget = {
   scope: string;
   spending_type: string;
   category_id: number | null;
+  category_ids: number[] | null;
   account_id: number | null;
+  account_ids: number[] | null;
   card_id: number | null;
+  card_ids: number[] | null;
   eligible_weekdays: number[] | null;
   alert_threshold: string;
   is_archived: boolean;

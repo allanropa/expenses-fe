@@ -8,6 +8,7 @@ export type NewTransaction = {
   transaction_date: string;
   account_id: number;
   category_id: number;
+  category_ids?: number[];
   description?: string | null;
   notes?: string | null;
 };

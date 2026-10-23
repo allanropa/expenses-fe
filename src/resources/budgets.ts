@@ -26,8 +26,11 @@ export type BudgetInput = {
   scope: string;
   spending_type: string;
   category_id?: number | null;
+  category_ids?: number[] | null;
   account_id?: number | null;
+  account_ids?: number[] | null;
   card_id?: number | null;
+  card_ids?: number[] | null;
   start_date?: string;
   end_date?: string;
   alert_threshold?: string;

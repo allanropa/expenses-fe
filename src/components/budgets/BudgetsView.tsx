@@ -4,7 +4,14 @@ import type { BudgetInput } from "../../resources/budgets";
 import { money } from "../../utils/formatters";
 import { isPositiveAmount, sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal, MoneyInput } from "../common";
+import {
+  ActionMenu,
+  CategoryPicker,
+  ErrorMessage,
+  Modal,
+  MoneyInput,
+  MultiChoicePicker,
+} from "../common";
 import { useModal } from "../../hooks";
 import {
   useAccounts,
@@ -13,6 +20,7 @@ import {
   useBudgetSummary,
   useBudgets,
   useCards,
+  useCategories,
   useCreateBudget,
   useUpdateBudget,
   useUnarchiveBudget,
@@ -21,12 +29,20 @@ import {
 function BudgetDetailsContent({ initialId }: { initialId: string }) {
   const budget = useBudget(initialId);
   const summary = useBudgetSummary(initialId);
+  const accounts = useAccounts();
+  const cards = useCards();
+  const categories = useCategories();
   if (budget.error) return <ErrorMessage error={budget.error} />;
   if (!budget.data) return <p className="muted">Cargando...</p>;
   const detail = budget.data;
   const periodLabel = (t: string) =>
     ({ daily: "Diario", weekly: "Semanal", monthly: "Mensual", custom: "Personalizado" })[t] ?? t;
   const current = summary.data;
+  const accountIds = detail.account_ids ?? (detail.account_id ? [detail.account_id] : []);
+  const cardIds = detail.card_ids ?? (detail.card_id ? [detail.card_id] : []);
+  const categoryIds = detail.category_ids ?? (detail.category_id ? [detail.category_id] : []);
+  const targetNames = (ids: number[], items: { id: number; name: string }[]) =>
+    ids.map((id) => items.find((item) => item.id === id)?.name ?? `#${id}`).join(", ");
   return (
     <section className="card detail-panel">
       <div className="detail-heading">
@@ -62,6 +78,24 @@ function BudgetDetailsContent({ initialId }: { initialId: string }) {
           <small>Monto objetivo</small>
           <strong>{money(detail.target_amount, detail.currency)}</strong>
         </div>
+        {accountIds.length > 0 && (
+          <div>
+            <small>Cuentas</small>
+            <strong>{targetNames(accountIds, accounts.data ?? [])}</strong>
+          </div>
+        )}
+        {cardIds.length > 0 && (
+          <div>
+            <small>Tarjetas</small>
+            <strong>{targetNames(cardIds, cards.data ?? [])}</strong>
+          </div>
+        )}
+        {categoryIds.length > 0 && (
+          <div>
+            <small>Categorías</small>
+            <strong>{targetNames(categoryIds, categories.data ?? [])}</strong>
+          </div>
+        )}
       </div>
       {summary.error && <ErrorMessage error={summary.error} />}
       {current && (
@@ -108,52 +142,60 @@ function BudgetDetailsContent({ initialId }: { initialId: string }) {
 function BudgetConfigurationPanel({
   initialId,
   onArchived,
+  onSaved,
 }: {
   initialId: string;
   onArchived: () => void;
+  onSaved: () => void;
 }) {
   const budget = useBudget(initialId);
   if (budget.error) return <ErrorMessage error={budget.error} />;
   if (!budget.data) return <p className="muted">Cargando...</p>;
   return (
-    <BudgetConfigurationForm key={budget.data.id} budget={budget.data} onArchived={onArchived} />
+    <BudgetConfigurationForm
+      key={budget.data.id}
+      budget={budget.data}
+      onArchived={onArchived}
+      onSaved={onSaved}
+    />
   );
 }
 
 function BudgetConfigurationForm({
   budget,
   onArchived,
+  onSaved,
 }: {
   budget: Budget;
   onArchived: () => void;
+  onSaved: () => void;
 }) {
   const updateBudget = useUpdateBudget();
   const archive = useArchiveBudget();
   const accounts = useAccounts();
   const cards = useCards();
+  const categories = useCategories();
   const [name, setName] = useState(budget.name);
   const [budgetType, setBudgetType] = useState(budget.budget_type);
   const [targetAmount, setTargetAmount] = useState(budget.target_amount);
   const [periodType, setPeriodType] = useState(budget.period_type);
   const [scope, setScope] = useState(budget.scope);
   const [spendingType, setSpendingType] = useState(budget.spending_type);
-  const [accountId, setAccountId] = useState(budget.account_id ? String(budget.account_id) : "");
-  const [cardId, setCardId] = useState(budget.card_id ? String(budget.card_id) : "");
+  const [accountIds, setAccountIds] = useState<string[]>(
+    (budget.account_ids ?? (budget.account_id ? [budget.account_id] : [])).map(String),
+  );
+  const [cardIds, setCardIds] = useState<string[]>(
+    (budget.card_ids ?? (budget.card_id ? [budget.card_id] : [])).map(String),
+  );
+  const [categoryIds, setCategoryIds] = useState<string[]>(
+    (budget.category_ids ?? (budget.category_id ? [budget.category_id] : [])).map(String),
+  );
   const [startDate, setStartDate] = useState(budget.start_date);
   const [endDate, setEndDate] = useState(budget.end_date);
   const filteredAccounts = (accounts.data ?? []).filter((a) => a.currency === budget.currency);
   const filteredCards = (cards.data ?? []).filter((c) =>
     c.currencies.some((x) => x.currency === budget.currency),
   );
-  const selectedAccountId =
-    accountId || (filteredAccounts[0] ? String(filteredAccounts[0].id) : "");
-  const selectedCardId = cardId || (filteredCards[0] ? String(filteredCards[0].id) : "");
-  const scopeReady =
-    scope === "account"
-      ? selectedAccountId !== ""
-      : scope === "card"
-        ? selectedCardId !== ""
-        : true;
   function save(event: FormEvent) {
     event.preventDefault();
     const body: BudgetInput = {
@@ -166,19 +208,23 @@ function BudgetConfigurationForm({
       spending_type: spendingType,
     };
     if (scope === "account") {
-      body.account_id = Number(selectedAccountId);
+      body.account_ids = accountIds.map(Number);
+      body.account_id = accountIds.length > 0 ? Number(accountIds[0]) : null;
       body.spending_type = "debit";
     } else if (scope === "card") {
-      body.card_id = Number(selectedCardId);
+      body.card_ids = cardIds.map(Number);
+      body.card_id = cardIds.length > 0 ? Number(cardIds[0]) : null;
       body.spending_type = "credit";
     } else {
       body.spending_type = spendingType;
     }
+    body.category_ids = categoryIds.map(Number);
+    body.category_id = categoryIds.length > 0 ? Number(categoryIds[0]) : null;
     if (periodType === "custom") {
       body.start_date = startDate;
       body.end_date = endDate;
     }
-    updateBudget.mutate({ id: budget.id, body });
+    updateBudget.mutate({ id: budget.id, body }, { onSuccess: onSaved });
   }
   return (
     <div className="stack">
@@ -226,36 +272,28 @@ function BudgetConfigurationForm({
         </label>
         {scope === "account" && (
           <label>
-            Cuenta
-            <select value={selectedAccountId} onChange={(e) => setAccountId(e.target.value)}>
-              {filteredAccounts.length === 0 ? (
-                <option value="">Sin cuentas en {budget.currency}</option>
-              ) : (
-                filteredAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))
-              )}
-            </select>
+            Cuentas (opcional)
+            <MultiChoicePicker
+              options={filteredAccounts}
+              selected={accountIds}
+              onChange={setAccountIds}
+            />
           </label>
         )}
         {scope === "card" && (
           <label>
-            Tarjeta
-            <select value={selectedCardId} onChange={(e) => setCardId(e.target.value)}>
-              {filteredCards.length === 0 ? (
-                <option value="">Sin tarjetas en {budget.currency}</option>
-              ) : (
-                filteredCards.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              )}
-            </select>
+            Tarjetas (opcional)
+            <MultiChoicePicker options={filteredCards} selected={cardIds} onChange={setCardIds} />
           </label>
         )}
+        <label>
+          Categorías (opcional)
+          <CategoryPicker
+            categories={categories.data ?? []}
+            selected={categoryIds}
+            onChange={setCategoryIds}
+          />
+        </label>
         {scope === "general" && (
           <label>
             Tipo de gasto
@@ -277,7 +315,7 @@ function BudgetConfigurationForm({
             </label>
           </>
         )}
-        <button disabled={!scopeReady}>Guardar cambios</button>
+        <button>Guardar cambios</button>
       </form>
       <button
         type="button"
@@ -295,6 +333,7 @@ export function BudgetsView() {
   const budgets = useBudgets(showArchived);
   const accounts = useAccounts();
   const cards = useCards();
+  const categories = useCategories();
   const createBudget = useCreateBudget();
   const unarchive = useUnarchiveBudget();
   const addModal = useModal();
@@ -311,8 +350,11 @@ export function BudgetsView() {
     scope: "general",
     spending_type: "debit",
     category_id: "",
+    category_ids: [] as string[],
     account_id: "",
+    account_ids: [] as string[],
     card_id: "",
+    card_ids: [] as string[],
     start_date: toISODateString(),
     end_date: toISODateString(),
   });
@@ -333,20 +375,21 @@ export function BudgetsView() {
       spending_type: form.spending_type,
     };
     if (form.scope === "account") {
-      if (!form.account_id) return;
-      body.account_id = Number(form.account_id);
+      body.account_ids = form.account_ids.map(Number);
+      body.account_id = form.account_ids.length > 0 ? Number(form.account_ids[0]) : null;
       body.spending_type = "debit";
     } else {
       body.account_id = null;
     }
     if (form.scope === "card") {
-      if (!form.card_id) return;
-      body.card_id = Number(form.card_id);
+      body.card_ids = form.card_ids.map(Number);
+      body.card_id = form.card_ids.length > 0 ? Number(form.card_ids[0]) : null;
       body.spending_type = "credit";
     } else {
       body.card_id = null;
     }
-    body.category_id = null;
+    body.category_ids = form.category_ids.map(Number);
+    body.category_id = form.category_ids.length > 0 ? Number(form.category_ids[0]) : null;
     if (form.period_type !== "custom") {
       body.start_date = undefined;
       body.end_date = undefined;
@@ -523,7 +566,14 @@ export function BudgetsView() {
               value={form.scope}
               onChange={(e) => {
                 const s = e.target.value;
-                const u: Record<string, string> = { scope: s, account_id: "", card_id: "" };
+                const u = {
+                  scope: s,
+                  account_id: "",
+                  account_ids: form.account_ids,
+                  card_id: "",
+                  card_ids: form.card_ids,
+                  category_ids: form.category_ids,
+                };
                 if (s === "account" && filteredAccounts.length > 0)
                   u.account_id = String(filteredAccounts[0].id);
                 if (s === "card" && filteredCards.length > 0)
@@ -538,42 +588,32 @@ export function BudgetsView() {
           </label>
           {form.scope === "account" && (
             <label>
-              Cuenta
-              <select
-                value={form.account_id}
-                onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-              >
-                {filteredAccounts.length === 0 ? (
-                  <option value="">Sin cuentas en {form.currency}</option>
-                ) : (
-                  filteredAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))
-                )}
-              </select>
+              Cuentas (opcional)
+              <MultiChoicePicker
+                options={filteredAccounts}
+                selected={form.account_ids}
+                onChange={(account_ids) => setForm({ ...form, account_ids })}
+              />
             </label>
           )}
           {form.scope === "card" && (
             <label>
-              Tarjeta
-              <select
-                value={form.card_id}
-                onChange={(e) => setForm({ ...form, card_id: e.target.value })}
-              >
-                {filteredCards.length === 0 ? (
-                  <option value="">Sin tarjetas en {form.currency}</option>
-                ) : (
-                  filteredCards.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))
-                )}
-              </select>
+              Tarjetas (opcional)
+              <MultiChoicePicker
+                options={filteredCards}
+                selected={form.card_ids}
+                onChange={(card_ids) => setForm({ ...form, card_ids })}
+              />
             </label>
           )}
+          <label>
+            Categorías (opcional)
+            <CategoryPicker
+              categories={categories.data ?? []}
+              selected={form.category_ids}
+              onChange={(category_ids) => setForm({ ...form, category_ids })}
+            />
+          </label>
           {form.scope === "general" && (
             <label>
               Tipo de gasto
@@ -627,6 +667,7 @@ export function BudgetsView() {
           <BudgetConfigurationPanel
             initialId={String(configId)}
             onArchived={() => configModal.closeModal()}
+            onSaved={() => configModal.closeModal()}
           />
         )}
       </Modal>

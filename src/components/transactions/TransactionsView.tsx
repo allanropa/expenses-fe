@@ -2,7 +2,14 @@ import { FormEvent, useState } from "react";
 import { money } from "../../utils/formatters";
 import { sumByCurrency } from "../../utils/amounts";
 import { toISODateString } from "../../utils/formatters";
-import { ActionMenu, ErrorMessage, Modal, MoneyInput, PaginationControls } from "../common";
+import {
+  ActionMenu,
+  CategoryPicker,
+  ErrorMessage,
+  Modal,
+  MoneyInput,
+  PaginationControls,
+} from "../common";
 import { useModal } from "../../hooks";
 import type { Transaction } from "../../types";
 import {
@@ -24,6 +31,7 @@ type FormState = {
   account_id: string;
   card_id: string;
   category_id: string;
+  category_ids: string[];
   installments_count: string;
   description: string;
 };
@@ -80,6 +88,10 @@ export function TransactionsView() {
       const expenseCategory = categoryList.find((c) => c.kind !== "income");
       return expenseCategory ? String(expenseCategory.id) : "";
     })(),
+    category_ids: (() => {
+      const expenseCategory = categoryList.find((c) => c.kind !== "income");
+      return expenseCategory ? [String(expenseCategory.id)] : [];
+    })(),
     installments_count: "1",
     description: "",
   };
@@ -100,7 +112,7 @@ export function TransactionsView() {
           id: form.card_id,
           body: {
             card_id: Number(form.card_id),
-            category_id: Number(form.category_id),
+            category_id: Number(form.category_ids[0] ?? form.category_id),
             amount: form.amount,
             currency: form.currency,
             purchase_date: form.transaction_date,
@@ -118,7 +130,8 @@ export function TransactionsView() {
           currency: form.currency,
           transaction_date: form.transaction_date,
           account_id: Number(form.account_id),
-          category_id: Number(form.category_id),
+          category_id: Number(form.category_ids[0] ?? form.category_id),
+          category_ids: form.category_ids.map(Number),
           description: form.description,
         },
         { onSuccess },
@@ -302,22 +315,13 @@ export function TransactionsView() {
 
             <label>
               Categoría
-              <select
-                required
-                value={form.category_id}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    category_id: event.target.value,
-                  })
+              <CategoryPicker
+                categories={categoryList}
+                selected={form.category_ids}
+                onChange={(category_ids) =>
+                  setForm({ ...form, category_id: category_ids[0] ?? "", category_ids })
                 }
-              >
-                {categoryList.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <label>
