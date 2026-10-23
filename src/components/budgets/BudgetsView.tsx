@@ -181,6 +181,7 @@ function BudgetConfigurationForm({
   const [periodType, setPeriodType] = useState(budget.period_type);
   const [scope, setScope] = useState(budget.scope);
   const [spendingType, setSpendingType] = useState(budget.spending_type);
+  const [showInSummary, setShowInSummary] = useState(budget.show_in_summary);
   const [accountIds, setAccountIds] = useState<string[]>(
     (budget.account_ids ?? (budget.account_id ? [budget.account_id] : [])).map(String),
   );
@@ -206,6 +207,7 @@ function BudgetConfigurationForm({
       period_type: periodType,
       scope,
       spending_type: spendingType,
+      show_in_summary: showInSummary,
     };
     if (scope === "account") {
       body.account_ids = accountIds.map(Number);
@@ -261,6 +263,14 @@ function BudgetConfigurationForm({
             <option value="daily">Diario</option>
             <option value="custom">Personalizado</option>
           </select>
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={showInSummary}
+            onChange={(e) => setShowInSummary(e.target.checked)}
+          />
+          Mostrar en el resumen
         </label>
         <label>
           Alcance
@@ -349,6 +359,7 @@ export function BudgetsView() {
     period_type: "monthly",
     scope: "general",
     spending_type: "debit",
+    show_in_summary: true,
     category_id: "",
     category_ids: [] as string[],
     account_id: "",
@@ -373,6 +384,7 @@ export function BudgetsView() {
       period_type: form.period_type,
       scope: form.scope,
       spending_type: form.spending_type,
+      show_in_summary: form.show_in_summary,
     };
     if (form.scope === "account") {
       body.account_ids = form.account_ids.map(Number);
@@ -559,6 +571,14 @@ export function BudgetsView() {
               <option value="daily">Diario</option>
               <option value="custom">Personalizado</option>
             </select>
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.show_in_summary}
+              onChange={(e) => setForm({ ...form, show_in_summary: e.target.checked })}
+            />
+            Mostrar en el resumen
           </label>
           <label>
             Alcance

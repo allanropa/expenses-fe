@@ -34,6 +34,7 @@ export type BudgetInput = {
   start_date?: string;
   end_date?: string;
   alert_threshold?: string;
+  show_in_summary?: boolean;
 };
 
 export const budgetsApi = {

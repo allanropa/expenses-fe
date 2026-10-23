@@ -111,6 +111,7 @@ export type Budget = {
   eligible_weekdays: number[] | null;
   alert_threshold: string;
   is_archived: boolean;
+  show_in_summary: boolean;
 };
 export type LoanInstallment = {
   id: number;
