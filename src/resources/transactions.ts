@@ -11,6 +11,7 @@ export type NewTransaction = {
   category_ids?: number[];
   description?: string | null;
   notes?: string | null;
+  is_recurring?: boolean;
 };
 
 export type TransactionUpdate = Partial<NewTransaction>;
@@ -23,6 +24,7 @@ export type TransactionListParams = {
   card_id?: number;
   category_id?: number;
   search?: string;
+  is_recurring?: boolean;
   limit?: number;
   offset?: number;
 };

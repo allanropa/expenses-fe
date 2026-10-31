@@ -12,6 +12,7 @@ import {
 } from "../common";
 import { useModal } from "../../hooks";
 import type { Transaction } from "../../types";
+import { RecurringPaymentsPanel } from "./RecurringPaymentsPanel";
 import type { TransactionListParams } from "../../resources/transactions";
 import {
   useAccounts,
@@ -44,6 +45,8 @@ export function TransactionsView() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [recurringFilter, setRecurringFilter] = useState("");
+  const [tab, setTab] = useState<"transactions" | "recurring">("transactions");
   const filters: TransactionListParams = {
     limit: pageSize,
     offset: page * pageSize,
@@ -55,6 +58,7 @@ export function TransactionsView() {
       ? { card_id: Number(sourceFilter.slice("card:".length)) }
       : {}),
     ...(typeFilter ? { transaction_type: typeFilter } : {}),
+    ...(recurringFilter ? { is_recurring: recurringFilter === "true" } : {}),
   };
   const transactions = useTransactions(filters);
   const accounts = useAccounts();
@@ -76,6 +80,7 @@ export function TransactionsView() {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
   const [editDescription, setEditDescription] = useState("");
+  const [editRecurring, setEditRecurring] = useState(false);
   const detailTransaction = list.find((item) => `${item.entry_type}-${item.id}` === detailKey);
   const editTransaction = list.find((item) => `${item.entry_type}-${item.id}` === editKey);
 
@@ -181,341 +186,388 @@ export function TransactionsView() {
         <button onClick={addModal.openModal}>Agregar movimiento</button>
       </header>
 
-      <section className="summary-strip">
-        <strong>{list.length} movimientos</strong>
-        {Object.entries(totals).map(([currency, amount]) => (
-          <span key={currency}>
-            Gastos {currency}: {money(amount, currency)}
-          </span>
-        ))}
-      </section>
-
-      <section className="card transaction-filters" aria-label="Filtros de movimientos">
-        <h3>Filtrar movimientos</h3>
-        <div className="filter-grid">
-          <label>
-            Categoría
-            <select
-              value={categoryFilter}
-              onChange={(event) => {
-                setCategoryFilter(event.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Todas las categorías</option>
-              {categoryList.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Cuenta o tarjeta
-            <select
-              value={sourceFilter}
-              onChange={(event) => {
-                setSourceFilter(event.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Todas las cuentas y tarjetas</option>
-              {accountList.map((account) => (
-                <option key={`account-${account.id}`} value={`account:${account.id}`}>
-                  Cuenta: {account.name}
-                </option>
-              ))}
-              {cardList.map((card) => (
-                <option key={`card-${card.id}`} value={`card:${card.id}`}>
-                  Tarjeta: {card.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Tipo
-            <select
-              value={typeFilter}
-              onChange={(event) => {
-                setTypeFilter(event.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Todos los tipos</option>
-              <option value="expense">Gasto</option>
-              <option value="income">Ingreso</option>
-              <option value="payment">Pago</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <div className="split-grid">
-        <Modal
-          open={addModal.open}
-          title="Agregar movimiento"
-          onClose={() => addModal.closeModal()}
+      <div className="list-tabs" role="tablist" aria-label="Movimientos">
+        <button
+          className={tab === "transactions" ? "active" : ""}
+          onClick={() => setTab("transactions")}
+          role="tab"
+          aria-selected={tab === "transactions"}
         >
-          <ErrorMessage
-            error={
-              createTransaction.error ??
-              addPurchase.error ??
-              accounts.error ??
-              cards.error ??
-              categories.error
-            }
-          />
-          <form className="stack" onSubmit={submit}>
-            <label>
-              Medio
-              <select
-                value={form.kind}
-                onChange={(event) => {
-                  const kind = event.target.value;
-                  setForm({
-                    ...form,
-                    kind: kind,
-                    currency:
-                      kind === "credit"
-                        ? (selectedCard?.currencies[0]?.currency ?? form.currency)
-                        : (accountList.find((a) => a.id === Number(form.account_id))?.currency ??
-                          form.currency),
-                    transaction_type: kind === "credit" ? "expense" : form.transaction_type,
-                  });
-                }}
-              >
-                <option value="debit">Débito / cuenta</option>
-                <option value="credit">Crédito / tarjeta</option>
-              </select>
-            </label>
+          Transacciones
+        </button>
+        <button
+          className={tab === "recurring" ? "active" : ""}
+          onClick={() => setTab("recurring")}
+          role="tab"
+          aria-selected={tab === "recurring"}
+        >
+          Recurrentes
+        </button>
+      </div>
 
-            {form.kind === "debit" ? (
-              <>
-                <label>
-                  Tipo
-                  <select
-                    value={form.transaction_type}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        transaction_type: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="expense">Gasto</option>
-                    <option value="income">Ingreso</option>
-                  </select>
-                </label>
-                <label>
-                  Cuenta
-                  <select
-                    required
-                    value={form.account_id}
-                    onChange={(event) => {
-                      const account = accountList.find((a) => a.id === Number(event.target.value));
-                      setForm({
-                        ...form,
-                        account_id: event.target.value,
-                        currency: account?.currency ?? form.currency,
-                      });
-                    }}
-                  >
-                    {accountList.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name} ({account.currency})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            ) : (
-              <>
-                <label>
-                  Tarjeta
-                  <select
-                    required
-                    value={form.card_id}
-                    onChange={(event) => {
-                      const card = cardList.find((c) => c.id === Number(event.target.value));
-                      setForm({
-                        ...form,
-                        card_id: event.target.value,
-                        currency: card?.currencies[0]?.currency ?? form.currency,
-                      });
-                    }}
-                  >
-                    {cardList.map((card) => (
-                      <option key={card.id} value={card.id}>
-                        {card.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Moneda
-                  <select
-                    required
-                    value={form.currency}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        currency: event.target.value,
-                      })
-                    }
-                  >
-                    {cardCurrencies.map((currency) => (
-                      <option key={currency}>{currency}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Cuotas
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.installments_count}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        installments_count: event.target.value,
-                      })
-                    }
-                  />
-                </label>
-              </>
-            )}
+      {tab === "recurring" ? <RecurringPaymentsPanel /> : null}
 
-            <label>
-              Monto
-              <MoneyInput
-                required
-                currency={form.currency}
-                aria-label="Monto"
-                value={form.amount}
-                onChange={(event) => setForm({ ...form, amount: event.target.value })}
-              />
-            </label>
+      {tab === "transactions" && (
+        <section className="summary-strip">
+          <strong>{list.length} movimientos</strong>
+          {Object.entries(totals).map(([currency, amount]) => (
+            <span key={currency}>
+              Gastos {currency}: {money(amount, currency)}
+            </span>
+          ))}
+        </section>
+      )}
 
+      {tab === "transactions" && (
+        <section className="card transaction-filters" aria-label="Filtros de movimientos">
+          <h3>Filtrar movimientos</h3>
+          <div className="filter-grid">
             <label>
               Categoría
-              <CategoryPicker
-                categories={categoryList}
-                selected={form.category_ids}
-                onChange={(category_ids) =>
-                  setForm({ ...form, category_id: category_ids[0] ?? "", category_ids })
-                }
-              />
+              <select
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todas las categorías</option>
+                {categoryList.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </label>
-
             <label>
-              Fecha
-              <input
-                required
-                type="date"
-                value={form.transaction_date}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    transaction_date: event.target.value,
-                  })
-                }
-              />
+              Cuenta o tarjeta
+              <select
+                value={sourceFilter}
+                onChange={(event) => {
+                  setSourceFilter(event.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todas las cuentas y tarjetas</option>
+                {accountList.map((account) => (
+                  <option key={`account-${account.id}`} value={`account:${account.id}`}>
+                    Cuenta: {account.name}
+                  </option>
+                ))}
+                {cardList.map((card) => (
+                  <option key={`card-${card.id}`} value={`card:${card.id}`}>
+                    Tarjeta: {card.name}
+                  </option>
+                ))}
+              </select>
             </label>
-
             <label>
-              Descripción
-              <input
-                value={form.description}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    description: event.target.value,
-                  })
-                }
-              />
+              Tipo
+              <select
+                value={typeFilter}
+                onChange={(event) => {
+                  setTypeFilter(event.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todos los tipos</option>
+                <option value="expense">Gasto</option>
+                <option value="income">Ingreso</option>
+                <option value="payment">Pago</option>
+              </select>
             </label>
+            <label>
+              Recurrencia
+              <select
+                value={recurringFilter}
+                onChange={(event) => {
+                  setRecurringFilter(event.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Todas</option>
+                <option value="true">Recurrentes</option>
+                <option value="false">No recurrentes</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      )}
 
-            <button>Guardar movimiento</button>
-          </form>
-        </Modal>
-
-        <section className="card transaction-list-card">
-          <h3>Movimientos recientes</h3>
-          {transactions.isPending && !transactions.error ? (
-            <p className="muted">Cargando movimientos...</p>
-          ) : transactions.error ? (
-            <ErrorMessage error={transactions.error} />
-          ) : list.length === 0 ? (
-            <p className="muted">No hay movimientos registrados.</p>
-          ) : (
-            list.map((item) => (
-              <div className="list-item" key={item.id}>
-                <div>
-                  <strong>
-                    {item.description ||
-                      (item.transaction_type === "transfer"
-                        ? "Transferencia"
-                        : item.transaction_type)}
-                    {item.entry_type === "transfer" && <span className="chip">Transferencia</span>}
-                    {item.transaction_type === "payment" && <span className="chip">Pago</span>}
-                  </strong>
-                  <small>
-                    {item.transaction_date} · {item.currency}
-                    {sourceName(item) ? ` · ${sourceName(item)}` : ""}
-                    {destinationName(item) ? ` → ${destinationName(item)}` : ""}
-                  </small>
-                </div>
-                <b className={item.transaction_type === "income" ? "positive" : "negative"}>
-                  {item.transaction_type === "income" ? "+" : "-"}
-                  {money(item.amount, item.currency)}
-                  {item.original_amount != null && item.original_currency && (
-                    <small> ≈ {money(item.original_amount, item.original_currency)}</small>
-                  )}
-                </b>
-                <ActionMenu
-                  onDetails={() => {
-                    setDetailKey(`${item.entry_type}-${item.id}`);
-                    detailModal.openModal();
+      {tab === "transactions" && (
+        <div className="split-grid">
+          <Modal
+            open={addModal.open}
+            title="Agregar movimiento"
+            onClose={() => addModal.closeModal()}
+          >
+            <ErrorMessage
+              error={
+                createTransaction.error ??
+                addPurchase.error ??
+                accounts.error ??
+                cards.error ??
+                categories.error
+              }
+            />
+            <form className="stack" onSubmit={submit}>
+              <label>
+                Medio
+                <select
+                  value={form.kind}
+                  onChange={(event) => {
+                    const kind = event.target.value;
+                    setForm({
+                      ...form,
+                      kind: kind,
+                      currency:
+                        kind === "credit"
+                          ? (selectedCard?.currencies[0]?.currency ?? form.currency)
+                          : (accountList.find((a) => a.id === Number(form.account_id))?.currency ??
+                            form.currency),
+                      transaction_type: kind === "credit" ? "expense" : form.transaction_type,
+                    });
                   }}
-                  onEdit={
-                    item.entry_type === "transaction" &&
-                    item.transaction_type !== "payment" &&
-                    item.payment_method !== "credit"
-                      ? () => {
-                          setEditKey(`${item.entry_type}-${item.id}`);
-                          const categoryIds =
-                            (item.category_ids ?? []).length > 0
-                              ? (item.category_ids ?? [])
-                              : item.category_id === null
-                                ? []
-                                : [item.category_id];
-                          setEditCategoryIds(categoryIds.map(String));
-                          setEditDescription(item.description ?? "");
-                          editModal.openModal();
-                        }
-                      : undefined
-                  }
-                  onDelete={
-                    item.entry_type === "transaction" && item.transaction_type !== "payment"
-                      ? () => removeTransaction.mutate(item.id)
-                      : undefined
+                >
+                  <option value="debit">Débito / cuenta</option>
+                  <option value="credit">Crédito / tarjeta</option>
+                </select>
+              </label>
+
+              {form.kind === "debit" ? (
+                <>
+                  <label>
+                    Tipo
+                    <select
+                      value={form.transaction_type}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          transaction_type: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="expense">Gasto</option>
+                      <option value="income">Ingreso</option>
+                    </select>
+                  </label>
+                  <label>
+                    Cuenta
+                    <select
+                      required
+                      value={form.account_id}
+                      onChange={(event) => {
+                        const account = accountList.find(
+                          (a) => a.id === Number(event.target.value),
+                        );
+                        setForm({
+                          ...form,
+                          account_id: event.target.value,
+                          currency: account?.currency ?? form.currency,
+                        });
+                      }}
+                    >
+                      {accountList.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name} ({account.currency})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Tarjeta
+                    <select
+                      required
+                      value={form.card_id}
+                      onChange={(event) => {
+                        const card = cardList.find((c) => c.id === Number(event.target.value));
+                        setForm({
+                          ...form,
+                          card_id: event.target.value,
+                          currency: card?.currencies[0]?.currency ?? form.currency,
+                        });
+                      }}
+                    >
+                      {cardList.map((card) => (
+                        <option key={card.id} value={card.id}>
+                          {card.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Moneda
+                    <select
+                      required
+                      value={form.currency}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          currency: event.target.value,
+                        })
+                      }
+                    >
+                      {cardCurrencies.map((currency) => (
+                        <option key={currency}>{currency}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Cuotas
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.installments_count}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          installments_count: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+
+              <label>
+                Monto
+                <MoneyInput
+                  required
+                  currency={form.currency}
+                  aria-label="Monto"
+                  value={form.amount}
+                  onChange={(event) => setForm({ ...form, amount: event.target.value })}
+                />
+              </label>
+
+              <label>
+                Categoría
+                <CategoryPicker
+                  categories={categoryList}
+                  selected={form.category_ids}
+                  onChange={(category_ids) =>
+                    setForm({ ...form, category_id: category_ids[0] ?? "", category_ids })
                   }
                 />
-              </div>
-            ))
-          )}
-          <PaginationControls
-            page={page}
-            pageSize={pageSize}
-            itemCount={list.length}
-            onPageChange={setPage}
-            onPageSizeChange={(nextPageSize) => {
-              setPage(0);
-              setPageSize(nextPageSize);
-            }}
-          />
-        </section>
-      </div>
+              </label>
+
+              <label>
+                Fecha
+                <input
+                  required
+                  type="date"
+                  value={form.transaction_date}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      transaction_date: event.target.value,
+                    })
+                  }
+                />
+              </label>
+
+              <label>
+                Descripción
+                <input
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      description: event.target.value,
+                    })
+                  }
+                />
+              </label>
+
+              <button>Guardar movimiento</button>
+            </form>
+          </Modal>
+
+          <section className="card transaction-list-card">
+            <h3>Movimientos recientes</h3>
+            {transactions.isPending && !transactions.error ? (
+              <p className="muted">Cargando movimientos...</p>
+            ) : transactions.error ? (
+              <ErrorMessage error={transactions.error} />
+            ) : list.length === 0 ? (
+              <p className="muted">No hay movimientos registrados.</p>
+            ) : (
+              list.map((item) => (
+                <div className="list-item" key={item.id}>
+                  <div>
+                    <strong>
+                      {item.description ||
+                        (item.transaction_type === "transfer"
+                          ? "Transferencia"
+                          : item.transaction_type)}
+                      {item.entry_type === "transfer" && (
+                        <span className="chip">Transferencia</span>
+                      )}
+                      {item.transaction_type === "payment" && <span className="chip">Pago</span>}
+                      {item.is_recurring && <span className="chip">Recurrente</span>}
+                    </strong>
+                    <small>
+                      {item.transaction_date} · {item.currency}
+                      {sourceName(item) ? ` · ${sourceName(item)}` : ""}
+                      {destinationName(item) ? ` → ${destinationName(item)}` : ""}
+                    </small>
+                  </div>
+                  <b className={item.transaction_type === "income" ? "positive" : "negative"}>
+                    {item.transaction_type === "income" ? "+" : "-"}
+                    {money(item.amount, item.currency)}
+                    {item.original_amount != null && item.original_currency && (
+                      <small> ≈ {money(item.original_amount, item.original_currency)}</small>
+                    )}
+                  </b>
+                  <ActionMenu
+                    onDetails={() => {
+                      setDetailKey(`${item.entry_type}-${item.id}`);
+                      detailModal.openModal();
+                    }}
+                    onEdit={
+                      item.entry_type === "transaction" &&
+                      item.transaction_type !== "payment" &&
+                      item.payment_method !== "credit"
+                        ? () => {
+                            setEditKey(`${item.entry_type}-${item.id}`);
+                            const categoryIds =
+                              (item.category_ids ?? []).length > 0
+                                ? (item.category_ids ?? [])
+                                : item.category_id === null
+                                  ? []
+                                  : [item.category_id];
+                            setEditCategoryIds(categoryIds.map(String));
+                            setEditDescription(item.description ?? "");
+                            setEditRecurring(item.is_recurring);
+                            editModal.openModal();
+                          }
+                        : undefined
+                    }
+                    onDelete={
+                      item.entry_type === "transaction" && item.transaction_type !== "payment"
+                        ? () => removeTransaction.mutate(item.id)
+                        : undefined
+                    }
+                  />
+                </div>
+              ))
+            )}
+            <PaginationControls
+              page={page}
+              pageSize={pageSize}
+              itemCount={list.length}
+              onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPage(0);
+                setPageSize(nextPageSize);
+              }}
+            />
+          </section>
+        </div>
+      )}
       <Modal
         open={detailModal.open}
         title="Detalle del movimiento"
@@ -561,6 +613,7 @@ export function TransactionsView() {
                     category_id: Number(editCategoryIds[0]),
                     category_ids: editCategoryIds.map(Number),
                     description: editDescription || null,
+                    is_recurring: editRecurring,
                   },
                 },
                 { onSuccess: () => editModal.closeModal() },
@@ -585,6 +638,14 @@ export function TransactionsView() {
                 value={editDescription}
                 onChange={(event) => setEditDescription(event.target.value)}
               />
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={editRecurring}
+                onChange={(event) => setEditRecurring(event.target.checked)}
+              />
+              Marcar como recurrente
             </label>
             <button disabled={editCategoryIds.length === 0 || updateTransaction.isPending}>
               Guardar cambios
@@ -660,6 +721,7 @@ function TransactionDetails({
         <span>{transaction.entry_type === "transfer" ? "Tipo" : "Categoría"}</span>
         <b>{categoryName ?? "Transferencia entre cuentas"}</b>
       </div>
+      {transaction.is_recurring && <span className="chip">Recurrente</span>}
       {transaction.notes && (
         <>
           <h4>Notas</h4>

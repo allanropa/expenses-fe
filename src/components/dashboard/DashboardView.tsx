@@ -149,6 +149,7 @@ export function DashboardView() {
                     (item.entry_type === "transfer" ? "Transferencia" : item.transaction_type)}
                   {item.entry_type === "transfer" && <span className="chip">Transferencia</span>}
                   {item.transaction_type === "payment" && <span className="chip">Pago</span>}
+                  {item.is_recurring && <span className="chip">Recurrente</span>}
                 </strong>
                 <small>
                   {item.transaction_date} · {item.currency} ·{" "}

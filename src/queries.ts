@@ -34,6 +34,11 @@ import {
 import { transfersApi, type NewTransfer } from "./resources/transfers";
 import { dashboardApi } from "./resources/dashboard";
 import { useSession } from "./session";
+import {
+  recurringApi,
+  type RecurringPaymentInput,
+  type RecurringPaymentUpdate,
+} from "./resources/recurring";
 
 type Id = number | string;
 type MaybeId = Id | null | undefined;
@@ -46,6 +51,7 @@ export const keys = {
   loans: ["loans"],
   budgets: ["budgets"],
   transactions: ["transactions"],
+  recurring: ["recurring"],
   categories: ["categories"],
   dashboard: ["dashboard"],
   settings: ["settings"],
@@ -167,6 +173,32 @@ export function useTransactions(params?: TransactionListParams) {
     queryKey: [...keys.transactions, params],
     queryFn: () => transactionsApi.list(params),
   });
+}
+
+export function useRecurringPayments(activeOnly = true) {
+  return useQuery({
+    queryKey: [...keys.recurring, { activeOnly }],
+    queryFn: () => recurringApi.list(activeOnly),
+  });
+}
+
+export function useCreateRecurringPayment() {
+  return useWrite(
+    (csrf, body: RecurringPaymentInput) => recurringApi.create(csrf, body),
+    [keys.recurring, keys.transactions, keys.accounts, keys.dashboard],
+  );
+}
+
+export function useUpdateRecurringPayment() {
+  return useWrite(
+    (csrf, vars: { id: number; body: RecurringPaymentUpdate }) =>
+      recurringApi.update(csrf, vars.id, vars.body),
+    [keys.recurring],
+  );
+}
+
+export function useDeactivateRecurringPayment() {
+  return useWrite((csrf, id: number) => recurringApi.deactivate(csrf, id), [keys.recurring]);
 }
 
 export function useDashboard() {

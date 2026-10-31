@@ -41,6 +41,24 @@ export type Transaction = {
   description: string | null;
   notes: string | null;
   status: string;
+  is_recurring: boolean;
+};
+export type RecurringPayment = {
+  id: number;
+  transaction_type: "income" | "expense";
+  source_account_id: number | null;
+  destination_account_id: number | null;
+  amount: string;
+  currency: string;
+  category_id: number;
+  description: string | null;
+  frequency: "weekly" | "monthly" | "yearly";
+  weekday: number | null;
+  day_of_month: number | null;
+  month: number | null;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
 };
 export type CardCurrency = {
   currency: string;
@@ -216,5 +234,6 @@ export type Dashboard = {
     category_id: number | null;
     source: string;
     destination: string | null;
+    is_recurring: boolean;
   }[];
 };

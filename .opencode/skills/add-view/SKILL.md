@@ -1,6 +1,6 @@
 ---
 name: Add View
-description: Add a new feature view to the expenses frontend, wired into App.tsx navigation, with api() and useSession()
+description: Add a new feature view to the expenses frontend, wired into App.tsx navigation and the existing query/resource architecture
 ---
 
 ## When to use
@@ -14,7 +14,7 @@ Use this when the user asks for a new screen or section (e.g. "add a categories 
 3. **Create the component** at `src/components/<feature>/<Feature>View.tsx`:
    - Named export with no props: `export function <Feature>View()`.
    - Read the token first: `const { csrf_token: csrf } = useSession();` (import from `src/session.tsx`). Do not add a `csrf` prop.
-   - Load data by calling the resource module (e.g. `accountsApi.list()`) inside `useEffect` with a dependency array. Surface errors to the user; do not use `.catch(() => undefined)`.
+    - Load data with the `useQuery` hooks in `src/queries.ts`, calling the resource module (e.g. `accountsApi.list()`) from there. Surface errors to the user; do not use `.catch(() => undefined)` or load data in `useEffect`.
    - Mutations also go through the resource module, e.g. `accountsApi.create(csrf, body)`. Add the function to `src/resources/<resource>.ts` if it doesn't exist. It calls `api()` with `{ method, csrf, body: JSON.stringify(...) }`, and it sends `Idempotency-Key` for create-style POSTs.
    - Use `useForm`, `useModal` (`openModal` / `closeModal`), and `Modal` from `src/hooks/index.ts` and `src/components/common`. Use `money()` and `toISODateString()` from `src/utils/formatters.ts`. Sum amounts with `src/utils/amounts.ts`, never with `Number()`.
 4. **Register the view in `src/App.tsx`** in all three places:
