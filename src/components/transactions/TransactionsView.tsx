@@ -506,7 +506,9 @@ export function TransactionsView() {
                       {item.entry_type === "transfer" && (
                         <span className="chip">Transferencia</span>
                       )}
-                      {item.transaction_type === "payment" && <span className="chip">Pago</span>}
+                      {(item.transaction_type === "payment" || item.is_payment_component) && (
+                        <span className="chip">Pago</span>
+                      )}
                       {item.is_recurring && <span className="chip">Recurrente</span>}
                     </strong>
                     <small>
@@ -670,13 +672,16 @@ function TransactionDetails({
   categoryName: string | null;
   destinationName: string | null;
 }) {
-  const typeLabel =
-    (
-      { expense: "Gasto", income: "Ingreso", payment: "Pago", transfer: "Transferencia" } as Record<
-        string,
-        string
-      >
-    )[transaction.transaction_type] ?? transaction.transaction_type;
+  const typeLabel = transaction.is_payment_component
+    ? "Pago"
+    : ((
+        {
+          expense: "Gasto",
+          income: "Ingreso",
+          payment: "Pago",
+          transfer: "Transferencia",
+        } as Record<string, string>
+      )[transaction.transaction_type] ?? transaction.transaction_type);
   const methodLabel =
     transaction.entry_type === "transfer"
       ? "Transferencia entre cuentas"

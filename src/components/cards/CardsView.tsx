@@ -33,16 +33,17 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
   const recordPayment = useRecordCardPayment();
   const [currencyChoice, setCurrencyChoice] = useState<string | null>(null);
   const [lines, setLines] = useState<PaymentLine[]>([
-    { kind: "capital", amount: "", category_id: "", description: "" },
+    { kind: "interes", amount: "", category_id: "", description: "" },
   ]);
   const [source, setSource] = useState("");
   const [rate, setRate] = useState("");
+  const [totalPaidOverride, setTotalPaidOverride] = useState<string | null>(null);
   const [payDate, setPayDate] = useState(toISODateString());
   if (card.error) return <ErrorMessage error={card.error} />;
   if (!card.data) return <p className="muted">Cargando...</p>;
   const currency = currencyChoice ?? card.data.currencies[0]?.currency ?? "";
   function addLine() {
-    setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]);
+    setLines([...lines, { kind: "gasto", amount: "", category_id: "", description: "" }]);
   }
   function updateLine(i: number, field: keyof PaymentLine, value: string) {
     const copy = [...lines];
@@ -52,26 +53,31 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
   function removeLine(i: number) {
     setLines(lines.filter((_, idx) => idx !== i));
   }
-  const capitalTotal = sumAmounts(lines.filter((l) => l.kind === "capital").map((l) => l.amount));
   const extraTotal = sumAmounts(lines.filter((l) => l.kind !== "capital").map((l) => l.amount));
+  const debt = card.data.currencies.find((c) => c.currency === currency)?.outstanding_debt ?? "0";
+  const totalPaid = totalPaidOverride ?? debt;
+  const abonoTotal = sumAmounts([totalPaid, `-${extraTotal}`]);
   const expenseCategories = (categories.data ?? []).filter((c) => c.kind !== "income");
   const selectedAccount = (accounts.data ?? []).find((a) => a.id === Number(source));
   const isMultiCurrency = Boolean(selectedAccount && selectedAccount.currency !== currency);
   const sourceDecimals = selectedAccount?.currency === "COP" ? 0 : 2;
   const sourceAmount =
-    isMultiCurrency && rate ? multiplyAmount(capitalTotal, rate, sourceDecimals) : "";
-  const sourceExtra =
-    isMultiCurrency && rate ? multiplyAmount(extraTotal, rate, sourceDecimals) : extraTotal;
-  const totalSource = sumAmounts([sourceAmount || capitalTotal, sourceExtra]);
-  const debt = card.data.currencies.find((c) => c.currency === currency)?.outstanding_debt ?? "0";
-  const capitalExceedsDebt = isPositiveAmount(sumAmounts([capitalTotal, `-${debt}`]));
+    isMultiCurrency && rate ? multiplyAmount(totalPaid, rate, sourceDecimals) : "";
+  const totalSource = sourceAmount || totalPaid;
+  const capitalExceedsDebt = isPositiveAmount(sumAmounts([totalPaid, `-${debt}`]));
   const accountExceedsBalance = Boolean(
     selectedAccount &&
     isPositiveAmount(sumAmounts([totalSource, `-${selectedAccount.current_balance}`])),
   );
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!source || !isPositiveAmount(capitalTotal) || capitalExceedsDebt || accountExceedsBalance)
+    if (
+      !source ||
+      !isPositiveAmount(totalPaid) ||
+      abonoTotal.startsWith("-") ||
+      capitalExceedsDebt ||
+      accountExceedsBalance
+    )
       return;
     const extras = lines
       .filter((l) => l.kind !== "capital" && l.amount)
@@ -79,6 +85,7 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
         amount: l.amount,
         category_id: Number(l.category_id) || expenseCategories[0]?.id,
         description: l.description || (l.kind === "interes" ? "Interés" : "Cargo adicional"),
+        charge_type: l.kind === "interes" ? ("interest" as const) : ("fee" as const),
       }));
     recordPayment.mutate(
       {
@@ -86,8 +93,9 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
         body: {
           card_id: cardId,
           source_account_id: Number(source),
-          obligation_amount: capitalTotal,
+          obligation_amount: abonoTotal,
           obligation_currency: currency,
+          total_paid: totalPaid,
           source_amount: isMultiCurrency ? sourceAmount : undefined,
           exchange_rate: isMultiCurrency ? rate : undefined,
           payment_date: payDate,
@@ -169,6 +177,26 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
           />
         </label>
         <h4>Líneas de pago</h4>
+        <label>
+          Total pagado
+          <MoneyInput
+            required
+            currency={currency}
+            value={totalPaid}
+            onChange={(e) => setTotalPaidOverride(e.target.value)}
+          />
+        </label>
+        <label>
+          Abono calculado
+          <MoneyInput
+            required
+            currency={currency}
+            value={abonoTotal}
+            onChange={(e) => {
+              setTotalPaidOverride(sumAmounts([e.target.value, extraTotal]));
+            }}
+          />
+        </label>
         {lines.map((line, i) => (
           <div className="row line-row" key={i}>
             <select
@@ -177,7 +205,6 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
               onChange={(e) => updateLine(i, "kind", e.target.value)}
               className="line-kind"
             >
-              <option value="capital">Abono</option>
               <option value="interes">Interés</option>
               <option value="gasto">Gasto</option>
             </select>
@@ -221,9 +248,9 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
         <button type="button" onClick={addLine}>
           + Agregar línea
         </button>
-        {isPositiveAmount(capitalTotal) && (
+        {!abonoTotal.startsWith("-") && isPositiveAmount(totalPaid) && (
           <p>
-            <strong>Total abono: {money(capitalTotal, currency)}</strong>
+            <strong>Total abono: {money(abonoTotal, currency)}</strong>
           </p>
         )}
         {isPositiveAmount(extraTotal) && (
@@ -235,24 +262,19 @@ function CardPaymentPanel({ cardId, onDone }: { cardId: number; onDone: () => vo
           <p>
             <strong>
               Total a descontar ({selectedAccount!.currency}):{" "}
-              {money(
-                multiplyAmount(sumAmounts([capitalTotal, extraTotal]), rate, sourceDecimals),
-                selectedAccount!.currency,
-              )}
+              {money(multiplyAmount(totalPaid, rate, sourceDecimals), selectedAccount!.currency)}
             </strong>
           </p>
         )}
-        {!isMultiCurrency && (isPositiveAmount(capitalTotal) || isPositiveAmount(extraTotal)) && (
+        {!isMultiCurrency && isPositiveAmount(totalPaid) && (
           <p>
-            <strong>
-              Total a pagar: {money(sumAmounts([capitalTotal, extraTotal]), currency)}
-            </strong>
+            <strong>Total a pagar: {money(totalPaid, currency)}</strong>
           </p>
         )}
         <button
           disabled={
             !source ||
-            !isPositiveAmount(capitalTotal) ||
+            abonoTotal.startsWith("-") ||
             (isMultiCurrency && !rate) ||
             capitalExceedsDebt ||
             accountExceedsBalance

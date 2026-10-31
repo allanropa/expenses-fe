@@ -38,12 +38,14 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   const pending = loan.installments.find((i) => i.status !== "paid");
   const [isAbono, setIsAbono] = useState(false);
   const [abonoAmount, setAbonoAmount] = useState("");
+  const [totalPaidOverride, setTotalPaidOverride] = useState<string | null>(
+    pending?.total_amount ?? null,
+  );
   const [source, setSource] = useState("");
   const [payDate, setPayDate] = useState(toISODateString());
   const [lines, setLines] = useState<PaymentLine[]>(() =>
     pending
       ? [
-          { kind: "capital", amount: pending.principal_amount, category_id: "", description: "" },
           {
             kind: "interes",
             amount: pending.interest_amount,
@@ -51,10 +53,10 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
             description: "Interés",
           },
         ]
-      : [{ kind: "capital", amount: "", category_id: "", description: "" }],
+      : [{ kind: "interes", amount: "", category_id: "", description: "" }],
   );
   function addLine() {
-    setLines([...lines, { kind: "capital", amount: "", category_id: "", description: "" }]);
+    setLines([...lines, { kind: "gasto", amount: "", category_id: "", description: "" }]);
   }
   function updateLine(i: number, field: keyof PaymentLine, value: string) {
     const copy = [...lines];
@@ -64,18 +66,18 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   function removeLine(i: number) {
     setLines(lines.filter((_, idx) => idx !== i));
   }
-  const capitalTotal = sumAmounts(lines.filter((l) => l.kind === "capital").map((l) => l.amount));
   const interestTotal = sumAmounts(lines.filter((l) => l.kind === "interes").map((l) => l.amount));
-  const paymentTotal = sumAmounts([capitalTotal, interestTotal]);
   const expenseCategories = (categories.data ?? []).filter((c) => c.kind !== "income");
   const matching = (accounts.data ?? []).filter((a) => a.currency === loan.currency);
   const selectedSource = matching.find((account) => account.id === Number(source));
   const extraChargeTotal = sumAmounts(lines.filter((l) => l.kind === "gasto").map((l) => l.amount));
-  const capitalAmount = isAbono ? abonoAmount : capitalTotal;
+  const totalPaid = totalPaidOverride ?? "";
+  const calculatedAbono = sumAmounts([totalPaid, `-${interestTotal}`, `-${extraChargeTotal}`]);
+  const capitalAmount = isAbono ? abonoAmount : calculatedAbono;
   const capitalExceedsBalance = isPositiveAmount(
     sumAmounts([capitalAmount, `-${loan.outstanding_principal}`]),
   );
-  const amountToDebit = isAbono ? abonoAmount : sumAmounts([paymentTotal, extraChargeTotal]);
+  const amountToDebit = isAbono ? abonoAmount : totalPaid;
   const accountExceedsBalance = Boolean(
     selectedSource &&
     isPositiveAmount(sumAmounts([amountToDebit, `-${selectedSource.current_balance}`])),
@@ -84,7 +86,8 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
     event.preventDefault();
     if (
       !source ||
-      !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(paymentTotal)) ||
+      !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(totalPaid)) ||
+      (!isAbono && calculatedAbono.startsWith("-")) ||
       capitalExceedsBalance ||
       accountExceedsBalance
     )
@@ -102,7 +105,8 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         body: {
           source_account_id: Number(source),
           payment_date: payDate,
-          scheduled_amount: isAbono ? undefined : paymentTotal,
+          scheduled_amount: isAbono ? undefined : sumAmounts([totalPaid, `-${extraChargeTotal}`]),
+          total_paid: isAbono ? undefined : totalPaid,
           interest_paid: isAbono
             ? undefined
             : isPositiveAmount(interestTotal)
@@ -178,6 +182,28 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         ) : (
           <>
             <h4>Líneas de pago</h4>
+            <label>
+              Total pagado
+              <MoneyInput
+                required
+                currency={loan.currency}
+                value={totalPaid}
+                onChange={(e) => setTotalPaidOverride(e.target.value)}
+              />
+            </label>
+            <label>
+              Abono calculado
+              <MoneyInput
+                required
+                currency={loan.currency}
+                value={calculatedAbono}
+                onChange={(e) => {
+                  setTotalPaidOverride(
+                    sumAmounts([e.target.value, interestTotal, extraChargeTotal]),
+                  );
+                }}
+              />
+            </label>
             {lines.map((line, i) => (
               <div className="row line-row" key={i}>
                 <select
@@ -186,7 +212,6 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
                   onChange={(e) => updateLine(i, "kind", e.target.value)}
                   className="line-kind"
                 >
-                  <option value="capital">Abono</option>
                   <option value="interes">Interés</option>
                   <option value="gasto">Gasto</option>
                 </select>
@@ -230,11 +255,12 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
             <button type="button" onClick={addLine}>
               + Agregar línea
             </button>
-            {isPositiveAmount(paymentTotal) && (
+            {isPositiveAmount(totalPaid) && (
               <p>
-                <strong>Total cuota: {money(paymentTotal, loan.currency)}</strong> (abono{" "}
-                {money(capitalTotal, loan.currency)} + interés {money(interestTotal, loan.currency)}
-                )
+                <strong>Total pagado: {money(totalPaid, loan.currency)}</strong> (abono{" "}
+                {money(calculatedAbono, loan.currency)} + interés{" "}
+                {money(interestTotal, loan.currency)} + gastos{" "}
+                {money(extraChargeTotal, loan.currency)})
               </p>
             )}
           </>
@@ -242,7 +268,8 @@ function LoanPaymentForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
         <button
           disabled={
             !source ||
-            !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(paymentTotal)) ||
+            !(isAbono ? isPositiveAmount(abonoAmount) : isPositiveAmount(totalPaid)) ||
+            (!isAbono && calculatedAbono.startsWith("-")) ||
             capitalExceedsBalance ||
             accountExceedsBalance
           }

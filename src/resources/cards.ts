@@ -16,12 +16,18 @@ export type CardPayment = {
   source_account_id: number | null;
   obligation_amount: string;
   obligation_currency: string;
+  total_paid?: string;
   source_amount?: string | null;
   exchange_rate?: string | null;
   fee_amount?: string | null;
   payment_date: string;
   notes?: string | null;
-  extra_charges?: { amount: string; category_id?: number; description: string }[];
+  extra_charges?: {
+    amount: string;
+    category_id?: number;
+    description: string;
+    charge_type?: "interest" | "fee";
+  }[];
 };
 
 export type InterestRateInput = {

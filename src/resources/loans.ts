@@ -23,6 +23,7 @@ export type LoanPaymentInput = {
   source_account_id: number;
   payment_date: string;
   scheduled_amount?: string;
+  total_paid?: string;
   interest_paid?: string;
   extra_principal?: string;
   recalculate_installments?: boolean;

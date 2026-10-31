@@ -42,6 +42,9 @@ export type Transaction = {
   notes: string | null;
   status: string;
   is_recurring: boolean;
+  is_payment_component: boolean;
+  payment_component_type: string | null;
+  payment_component_id: number | null;
 };
 export type RecurringPayment = {
   id: number;
@@ -172,6 +175,7 @@ export type CardPayment = {
   source_account_id: number | null;
   obligation_amount: string;
   obligation_currency: string;
+  total_paid: string;
   source_amount: string | null;
   source_currency: string | null;
   exchange_rate: string | null;
@@ -188,6 +192,7 @@ export type LoanPayment = {
   interest_paid: string;
   extra_principal: string;
   total_amount: string;
+  total_paid: string;
   notes: string | null;
 };
 export type Alert = { id: number; alert_type: string; message: string; read_at: string | null };
