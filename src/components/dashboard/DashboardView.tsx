@@ -1,7 +1,24 @@
 import { ReactNode, useState } from "react";
 import { ErrorMessage } from "../common";
 import { useCategories, useDashboard } from "../../queries";
-import { money } from "../../utils/formatters";
+import { money, toISODateString } from "../../utils/formatters";
+
+function currentMonthValue() {
+  return toISODateString().slice(0, 7);
+}
+
+function monthRange(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  const today = new Date();
+  const first = new Date(year || today.getFullYear(), (month || today.getMonth() + 1) - 1, 1);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  return { start: toISODateString(first), end: toISODateString(last) };
+}
+
+function shiftedMonthValue(offset: number) {
+  const today = new Date();
+  return toISODateString(new Date(today.getFullYear(), today.getMonth() + offset, 1)).slice(0, 7);
+}
 
 function storedOpenState(key: string) {
   if (typeof window === "undefined") return true;
@@ -42,7 +59,16 @@ function CollapsibleCard({
 }
 
 export function DashboardView() {
-  const dashboard = useDashboard();
+  const [period, setPeriod] = useState<"current" | "previous" | "custom">("current");
+  const [customMonth, setCustomMonth] = useState(currentMonthValue);
+  const selectedMonth =
+    period === "current"
+      ? shiftedMonthValue(0)
+      : period === "previous"
+        ? shiftedMonthValue(-1)
+        : customMonth;
+  const periodParams = monthRange(selectedMonth);
+  const dashboard = useDashboard({ date_from: periodParams.start, date_to: periodParams.end });
   const categories = useCategories();
   if (dashboard.error) return <ErrorMessage error={dashboard.error} />;
   if (categories.error) return <ErrorMessage error={categories.error} />;
@@ -58,8 +84,31 @@ export function DashboardView() {
     <>
       <header className="page-heading">
         <div>
-          <p className="eyebrow">Resumen del mes</p>
+          <p className="eyebrow">Resumen financiero</p>
           <h2>Tu posición financiera</h2>
+        </div>
+        <div className="dashboard-filter">
+          <label>
+            Periodo
+            <select
+              value={period}
+              onChange={(event) => setPeriod(event.target.value as typeof period)}
+            >
+              <option value="current">Este mes</option>
+              <option value="previous">Mes anterior</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </label>
+          {period === "custom" && (
+            <label>
+              Mes
+              <input
+                type="month"
+                value={customMonth}
+                onChange={(event) => setCustomMonth(event.target.value)}
+              />
+            </label>
+          )}
         </div>
       </header>
       <section className="dashboard-overview">

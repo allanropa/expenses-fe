@@ -33,7 +33,7 @@ const emptyDashboard = {
 };
 
 function responseFor(url: string): unknown {
-  if (url.endsWith("/api/dashboard")) return emptyDashboard;
+  if (url.startsWith("http://localhost:8000/api/dashboard")) return emptyDashboard;
   if (url.endsWith("/api/settings"))
     return { reporting_currency: "COP", timezone: "America/Bogota" };
   return [];

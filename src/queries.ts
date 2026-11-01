@@ -201,8 +201,11 @@ export function useDeactivateRecurringPayment() {
   return useWrite((csrf, id: number) => recurringApi.deactivate(csrf, id), [keys.recurring]);
 }
 
-export function useDashboard() {
-  return useQuery({ queryKey: keys.dashboard, queryFn: () => dashboardApi.get() });
+export function useDashboard(params?: { date_from?: string; date_to?: string }) {
+  return useQuery({
+    queryKey: [...keys.dashboard, params],
+    queryFn: () => dashboardApi.get(params),
+  });
 }
 
 export function useSettings() {

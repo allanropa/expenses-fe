@@ -488,6 +488,21 @@ h3 {
 .dashboard-consumption small {
   color: var(--text-muted);
 }
+.dashboard-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+.dashboard-filter label {
+  min-width: 130px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.dashboard-filter input,
+.dashboard-filter select {
+  margin-top: var(--space-1);
+}
 .dashboard-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
