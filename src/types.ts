@@ -201,6 +201,12 @@ export type Dashboard = {
   period: { start: string; end: string };
   income_by_currency: Record<string, string>;
   consumption_by_currency: Record<string, string>;
+  spending_by_category: {
+    category_id: number | null;
+    category_name: string;
+    currency: string;
+    amount: string | number;
+  }[];
   difference_by_currency: Record<string, string>;
   accounts: { id: number; name: string; currency: string; balance: string }[];
   card_debt: { card_id: number; card_name: string; currency: string; amount: string }[];

@@ -524,6 +524,87 @@ h3 {
 .dashboard-sidebar h3 {
   margin-bottom: 0.85rem;
 }
+.category-spending-card {
+  overflow: hidden;
+}
+.category-charts {
+  display: grid;
+  gap: var(--space-4);
+}
+.category-chart {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+.category-chart-visual {
+  position: relative;
+  width: 92px;
+  height: 92px;
+}
+.category-chart-visual svg {
+  width: 100%;
+  height: 100%;
+}
+.category-chart-visual strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+}
+.chart-segment-0,
+.chart-dot-0 {
+  fill: var(--chart-1);
+  background: var(--chart-1);
+}
+.chart-segment-1,
+.chart-dot-1 {
+  fill: var(--chart-2);
+  background: var(--chart-2);
+}
+.chart-segment-2,
+.chart-dot-2 {
+  fill: var(--chart-3);
+  background: var(--chart-3);
+}
+.chart-segment-3,
+.chart-dot-3 {
+  fill: var(--chart-4);
+  background: var(--chart-4);
+}
+.chart-segment-4,
+.chart-dot-4 {
+  fill: var(--chart-5);
+  background: var(--chart-5);
+}
+.chart-segment-5,
+.chart-dot-5 {
+  fill: var(--chart-6);
+  background: var(--chart-6);
+}
+.category-legend {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.category-legend-row {
+  display: grid;
+  grid-template-columns: 0.55rem minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: 0.75rem;
+}
+.category-legend-row span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--radius-pill);
+}
 .split-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.8fr) minmax(300px, 1.2fr);

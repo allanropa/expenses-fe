@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { ErrorMessage } from "../common";
 import { useCategories, useDashboard } from "../../queries";
 import { money, toISODateString } from "../../utils/formatters";
+import { sumAmounts } from "../../utils/amounts";
 
 function currentMonthValue() {
   return toISODateString().slice(0, 7);
@@ -18,6 +19,79 @@ function monthRange(value: string) {
 function shiftedMonthValue(offset: number) {
   const today = new Date();
   return toISODateString(new Date(today.getFullYear(), today.getMonth() + offset, 1)).slice(0, 7);
+}
+
+function piePath(start: number, end: number) {
+  const center = 50;
+  const radius = 42;
+  const startPoint = {
+    x: center + radius * Math.cos(start),
+    y: center + radius * Math.sin(start),
+  };
+  const endPoint = {
+    x: center + radius * Math.cos(end),
+    y: center + radius * Math.sin(end),
+  };
+  const largeArc = end - start > Math.PI ? 1 : 0;
+  return `M ${center} ${center} L ${startPoint.x} ${startPoint.y} A ${radius} ${radius} 0 ${largeArc} 1 ${endPoint.x} ${endPoint.y} Z`;
+}
+
+function SpendingByCategory({
+  items,
+}: {
+  items: {
+    category_name: string;
+    currency: string;
+    amount: string | number;
+  }[];
+}) {
+  const currencies = [...new Set(items.map((item) => item.currency))];
+  if (currencies.length === 0) {
+    return <p className="muted">No hay gastos en este periodo.</p>;
+  }
+  return (
+    <div className="category-charts">
+      {currencies.map((currency) => {
+        const entries = items.filter((item) => item.currency === currency);
+        const total = sumAmounts(entries.map((item) => String(item.amount)));
+        let angle = -Math.PI / 2;
+        return (
+          <div className="category-chart" key={currency}>
+            <div className="category-chart-visual">
+              <svg
+                viewBox="0 0 100 100"
+                role="img"
+                aria-label={`Gastos por categoría en ${currency}`}
+              >
+                {entries.map((entry, index) => {
+                  const nextAngle = angle + (Number(entry.amount) / Number(total)) * Math.PI * 2;
+                  const path = piePath(angle, nextAngle);
+                  angle = nextAngle;
+                  return (
+                    <path
+                      className={`chart-segment chart-segment-${index % 6}`}
+                      d={path}
+                      key={entry.category_name}
+                    />
+                  );
+                })}
+              </svg>
+              <strong>{currency}</strong>
+            </div>
+            <div className="category-legend">
+              {entries.map((entry, index) => (
+                <div className="category-legend-row" key={entry.category_name}>
+                  <span className={`chart-dot chart-dot-${index % 6}`} />
+                  <span>{entry.category_name}</span>
+                  <b>{money(entry.amount, currency)}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function storedOpenState(key: string) {
@@ -248,6 +322,10 @@ export function DashboardView() {
               })}
             </CollapsibleCard>
           )}
+          <section className="card category-spending-card">
+            <h3>Gastos por categoría</h3>
+            <SpendingByCategory items={data.spending_by_category ?? []} />
+          </section>
         </aside>
       </div>
     </>
