@@ -31,6 +31,7 @@ export type Transaction = {
   original_amount: string | null;
   original_currency: string | null;
   transaction_date: string;
+  created_at: string | null;
   account_id: number | null;
   card_id: number | null;
   credit_purchase_id: number | null;
@@ -234,6 +235,7 @@ export type Dashboard = {
     original_amount: string | null;
     original_currency: string | null;
     transaction_date: string;
+    created_at: string | null;
     payment_method: string;
     description: string | null;
     category_id: number | null;

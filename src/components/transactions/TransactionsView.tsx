@@ -73,6 +73,10 @@ export function TransactionsView() {
   const cardList = cards.data ?? [];
   const categoryList = categories.data ?? [];
   const list = transactions.data ?? [];
+  const orderedList = [...list].sort((a, b) => {
+    const createdComparison = (b.created_at ?? "").localeCompare(a.created_at ?? "");
+    return createdComparison || b.id - a.id;
+  });
   const addModal = useModal();
   const detailModal = useModal();
   const editModal = useModal();
@@ -125,6 +129,23 @@ export function TransactionsView() {
   };
   const [draft, setDraft] = useState<FormState | null>(null);
   const form = draft ?? defaults;
+  const selectableCategories = categoryList.filter((category) =>
+    form.kind === "credit"
+      ? category.kind !== "income"
+      : form.transaction_type === "income"
+        ? category.kind !== "expense"
+        : category.kind !== "income",
+  );
+
+  function categoriesFor(kind: string, transactionType: string) {
+    return categoryList.filter((category) =>
+      kind === "credit"
+        ? category.kind !== "income"
+        : transactionType === "income"
+          ? category.kind !== "expense"
+          : category.kind !== "income",
+    );
+  }
   const setForm = (next: FormState) => setDraft(next);
 
   function submit(event: FormEvent) {
@@ -317,6 +338,10 @@ export function TransactionsView() {
                   value={form.kind}
                   onChange={(event) => {
                     const kind = event.target.value;
+                    const nextCategories = categoriesFor(kind, form.transaction_type);
+                    const nextCategoryIds = form.category_ids.filter((id) =>
+                      nextCategories.some((category) => String(category.id) === id),
+                    );
                     setForm({
                       ...form,
                       kind: kind,
@@ -326,6 +351,13 @@ export function TransactionsView() {
                           : (accountList.find((a) => a.id === Number(form.account_id))?.currency ??
                             form.currency),
                       transaction_type: kind === "credit" ? "expense" : form.transaction_type,
+                      category_id: nextCategoryIds[0] ?? String(nextCategories[0]?.id ?? ""),
+                      category_ids:
+                        nextCategoryIds.length > 0
+                          ? nextCategoryIds
+                          : nextCategories[0]
+                            ? [String(nextCategories[0].id)]
+                            : [],
                     });
                   }}
                 >
@@ -341,10 +373,15 @@ export function TransactionsView() {
                     <select
                       value={form.transaction_type}
                       onChange={(event) =>
-                        setForm({
-                          ...form,
-                          transaction_type: event.target.value,
-                        })
+                        (() => {
+                          const nextCategories = categoriesFor(form.kind, event.target.value);
+                          setForm({
+                            ...form,
+                            transaction_type: event.target.value,
+                            category_id: String(nextCategories[0]?.id ?? ""),
+                            category_ids: nextCategories[0] ? [String(nextCategories[0].id)] : [],
+                          });
+                        })()
                       }
                     >
                       <option value="expense">Gasto</option>
@@ -446,7 +483,7 @@ export function TransactionsView() {
               <label>
                 Categoría
                 <CategoryPicker
-                  categories={categoryList}
+                  categories={selectableCategories}
                   selected={form.category_ids}
                   onChange={(category_ids) =>
                     setForm({ ...form, category_id: category_ids[0] ?? "", category_ids })
@@ -495,7 +532,7 @@ export function TransactionsView() {
             ) : list.length === 0 ? (
               <p className="muted">No hay movimientos registrados.</p>
             ) : (
-              list.map((item) => (
+              orderedList.map((item) => (
                 <div className="list-item" key={item.id}>
                   <div>
                     <strong>
@@ -510,6 +547,12 @@ export function TransactionsView() {
                         <span className="chip">Pago</span>
                       )}
                       {item.is_recurring && <span className="chip">Recurrente</span>}
+                      {item.category_id !== null && (
+                        <span className="chip category-chip">
+                          {categoryList.find((category) => category.id === item.category_id)
+                            ?.name ?? `Categoría #${item.category_id}`}
+                        </span>
+                      )}
                     </strong>
                     <small>
                       {item.transaction_date} · {item.currency}
