@@ -100,6 +100,13 @@ export function useCardPurchases(id: MaybeId, params?: { limit?: number; offset?
   });
 }
 
+export function useCardPayments(id: MaybeId, params?: { limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: [...keys.cards, id, "payments", params],
+    queryFn: isSet(id) ? () => cardsApi.payments(id, params) : skipToken,
+  });
+}
+
 export function useCategories(archived = false) {
   return useQuery({
     queryKey: [...keys.categories, { archived }],

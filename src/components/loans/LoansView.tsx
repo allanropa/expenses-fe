@@ -426,6 +426,11 @@ function LoanDetailsContent({ loanId }: { loanId: number }) {
                   <> · Abono extra {money(payment.extra_principal, current.currency)}</>
                 )}
               </small>
+              {payment.extra_charges.map((charge) => (
+                <small key={`${payment.id}-${charge.description}`}>
+                  {charge.description}: {money(charge.amount, current.currency)}
+                </small>
+              ))}
             </span>
             <b>{money(payment.amount, current.currency)}</b>
           </div>

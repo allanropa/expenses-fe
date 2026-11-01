@@ -169,6 +169,7 @@ export type LoanPaymentView = {
   interest_amount: string;
   extra_principal: string;
   notes: string | null;
+  extra_charges: { amount: string; category_id: number; description: string }[];
 };
 export type CardPayment = {
   id: number;
@@ -183,6 +184,7 @@ export type CardPayment = {
   fee_amount: string | null;
   payment_date: string;
   notes: string | null;
+  extra_charges: { amount: string; category_id: number; description: string }[];
 };
 export type LoanPayment = {
   id: number;

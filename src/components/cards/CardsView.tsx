@@ -12,6 +12,7 @@ import {
   useUnarchiveCard,
   useCard,
   useCardPurchases,
+  useCardPayments,
   useCards,
   useCategories,
   useCreateCard,
@@ -292,6 +293,7 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
   const purchases = useCardPurchases(cardId, { limit: pageSize, offset: page * pageSize });
+  const payments = useCardPayments(cardId, { limit: 10, offset: 0 });
   if (card.error) return <ErrorMessage error={card.error} />;
   if (!card.data) return <p className="muted">Cargando detalle...</p>;
   const purchaseList = purchases.data ?? [];
@@ -352,6 +354,31 @@ function CardDetailsContent({ cardId }: { cardId: number }) {
           setPageSize(nextPageSize);
         }}
       />
+      <h4>Historial de pagos aplicados</h4>
+      {payments.error && <ErrorMessage error={payments.error} />}
+      {payments.data?.length === 0 ? (
+        <p className="muted">No hay pagos aplicados.</p>
+      ) : (
+        payments.data?.map((payment) => (
+          <div className="row" key={payment.id}>
+            <span>
+              Pago {payment.payment_date}
+              <small>
+                Obligación {money(payment.obligation_amount, payment.obligation_currency)}
+                {payment.extra_charges.length > 0 && (
+                  <> · {payment.extra_charges.length} gasto(s) adicional(es)</>
+                )}
+              </small>
+              {payment.extra_charges.map((charge) => (
+                <small key={`${payment.id}-${charge.description}`}>
+                  {charge.description}: {money(charge.amount, payment.obligation_currency)}
+                </small>
+              ))}
+            </span>
+            <b>{money(payment.total_paid, payment.obligation_currency)}</b>
+          </div>
+        ))
+      )}
     </>
   );
 }
