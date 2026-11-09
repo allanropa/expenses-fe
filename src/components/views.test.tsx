@@ -111,6 +111,9 @@ it("filters the spending chart without changing the dashboard totals", async () 
   );
   renderView(<DashboardView />);
   await screen.findByText("Cuenta: Cuenta antigua (archivada)");
+  expect(
+    screen.getByRole("img", { name: "Gastos por categoría en COP" }).querySelector("circle"),
+  ).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Medio de pago"), { target: { value: "debit" } });
   fireEvent.change(screen.getByLabelText("Cuenta o tarjeta"), { target: { value: "account:3" } });
   await waitFor(() =>

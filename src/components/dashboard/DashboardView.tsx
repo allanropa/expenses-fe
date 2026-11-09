@@ -68,6 +68,17 @@ function SpendingByCategory({
                   const nextAngle = angle + (Number(entry.amount) / Number(total)) * Math.PI * 2;
                   const path = piePath(angle, nextAngle);
                   angle = nextAngle;
+                  if (entries.length === 1) {
+                    return (
+                      <circle
+                        className="chart-segment-0"
+                        cx="50"
+                        cy="50"
+                        r="42"
+                        key={entry.category_name}
+                      />
+                    );
+                  }
                   return (
                     <path
                       className={`chart-segment chart-segment-${index % 6}`}
@@ -128,40 +139,42 @@ function SpendingWidget({
   return (
     <section className="card category-spending-card">
       <h3>Gastos por categoría</h3>
-      <label>
-        Medio de pago
-        <select
-          value={method}
-          onChange={(event) => {
-            setMethod(event.target.value as typeof method);
-            setSource("");
-          }}
-        >
-          <option value="all">Todos</option>
-          <option value="debit">Débito</option>
-          <option value="credit">Tarjeta</option>
-        </select>
-      </label>
-      <label>
-        Cuenta o tarjeta
-        <select value={source} onChange={(event) => setSource(event.target.value)}>
-          <option value="">Todas</option>
-          {method !== "credit" &&
-            [...(accounts.data ?? []), ...(archivedAccounts.data ?? [])].map((account) => (
-              <option key={`account:${account.id}`} value={`account:${account.id}`}>
-                Cuenta: {account.name}
-                {account.is_archived ? " (archivada)" : ""}
-              </option>
-            ))}
-          {method !== "debit" &&
-            [...(cards.data ?? []), ...(archivedCards.data ?? [])].map((card) => (
-              <option key={`card:${card.id}`} value={`card:${card.id}`}>
-                Tarjeta: {card.name}
-                {card.is_archived ? " (archivada)" : ""}
-              </option>
-            ))}
-        </select>
-      </label>
+      <div className="category-spending-filters">
+        <label>
+          Medio de pago
+          <select
+            value={method}
+            onChange={(event) => {
+              setMethod(event.target.value as typeof method);
+              setSource("");
+            }}
+          >
+            <option value="all">Todos</option>
+            <option value="debit">Débito</option>
+            <option value="credit">Tarjeta</option>
+          </select>
+        </label>
+        <label>
+          Cuenta o tarjeta
+          <select value={source} onChange={(event) => setSource(event.target.value)}>
+            <option value="">Todas</option>
+            {method !== "credit" &&
+              [...(accounts.data ?? []), ...(archivedAccounts.data ?? [])].map((account) => (
+                <option key={`account:${account.id}`} value={`account:${account.id}`}>
+                  Cuenta: {account.name}
+                  {account.is_archived ? " (archivada)" : ""}
+                </option>
+              ))}
+            {method !== "debit" &&
+              [...(cards.data ?? []), ...(archivedCards.data ?? [])].map((card) => (
+                <option key={`card:${card.id}`} value={`card:${card.id}`}>
+                  Tarjeta: {card.name}
+                  {card.is_archived ? " (archivada)" : ""}
+                </option>
+              ))}
+          </select>
+        </label>
+      </div>
       <ErrorMessage error={error} />
       {filteredActive && filtered.isPending ? (
         <p className="muted">Cargando gastos...</p>
