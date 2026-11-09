@@ -79,6 +79,58 @@ describe("views render their heading", () => {
   });
 });
 
+it("orders recent movements by movement date before creation time", async () => {
+  const entry = {
+    entry_type: "transaction",
+    transaction_type: "expense",
+    amount: "1",
+    currency: "COP",
+    original_amount: null,
+    original_currency: null,
+    payment_method: "cash",
+    category_id: null,
+    source: "Cuenta",
+    destination: null,
+    is_recurring: false,
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            url.includes("/api/dashboard")
+              ? {
+                  ...emptyDashboard,
+                  recent_transactions: [
+                    {
+                      ...entry,
+                      id: 1,
+                      description: "Fecha anterior",
+                      transaction_date: "2026-10-01",
+                      created_at: "2026-10-20T12:00:00",
+                    },
+                    {
+                      ...entry,
+                      id: 2,
+                      description: "Fecha reciente",
+                      transaction_date: "2026-10-10",
+                      created_at: "2026-10-10T12:00:00",
+                    },
+                  ],
+                }
+              : [],
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ),
+  );
+  renderView(<DashboardView />);
+  const recent = await screen.findByText("Fecha reciente");
+  const older = screen.getByText("Fecha anterior");
+  expect(recent.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 describe("add buttons open their dialog", () => {
   it.each([
     ["Agregar cuenta", <AccountsView />],

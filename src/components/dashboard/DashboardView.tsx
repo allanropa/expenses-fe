@@ -221,7 +221,11 @@ export function DashboardView() {
               {[...data.recent_transactions]
                 .sort((a, b) => {
                   const createdComparison = (b.created_at ?? "").localeCompare(a.created_at ?? "");
-                  return createdComparison || b.id - a.id;
+                  return (
+                    b.transaction_date.localeCompare(a.transaction_date) ||
+                    createdComparison ||
+                    b.id - a.id
+                  );
                 })
                 .map((item) => (
                   <div className="list-item" key={`${item.entry_type}-${item.id}`}>
