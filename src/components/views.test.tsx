@@ -80,6 +80,50 @@ describe("views render their heading", () => {
   });
 });
 
+it("filters the spending chart without changing the dashboard totals", async () => {
+  const calls: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      calls.push(url);
+      let body: unknown = [];
+      if (url.includes("/api/dashboard"))
+        body = {
+          ...emptyDashboard,
+          consumption_by_currency: { COP: "30" },
+          spending_by_category: [
+            {
+              category_name: "Comida",
+              currency: "COP",
+              amount: url.includes("spending_") ? "10" : "30",
+            },
+          ],
+        };
+      else if (url.includes("/api/accounts?archived=true"))
+        body = [{ id: 3, name: "Cuenta antigua", currency: "COP", is_archived: true }];
+      else if (url.endsWith("/api/cards"))
+        body = [{ id: 4, name: "Visa", is_archived: false, currencies: [] }];
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+  renderView(<DashboardView />);
+  await screen.findByText("Cuenta: Cuenta antigua (archivada)");
+  fireEvent.change(screen.getByLabelText("Medio de pago"), { target: { value: "debit" } });
+  fireEvent.change(screen.getByLabelText("Cuenta o tarjeta"), { target: { value: "account:3" } });
+  await waitFor(() =>
+    expect(
+      calls.some(
+        (url) => url.includes("spending_method=debit") && url.includes("spending_account_id=3"),
+      ),
+    ).toBe(true),
+  );
+  expect(screen.queryByRole("option", { name: "Tarjeta: Visa" })).toBeNull();
+  expect(screen.getByText("Consumo del periodo").parentElement?.textContent).toContain("30");
+});
+
 it("orders recent movements by movement date before creation time", async () => {
   const entry = {
     entry_type: "transaction",

@@ -32,7 +32,7 @@ import {
   type TransactionUpdate,
 } from "./resources/transactions";
 import { transfersApi, type NewTransfer } from "./resources/transfers";
-import { dashboardApi } from "./resources/dashboard";
+import { dashboardApi, type DashboardParams } from "./resources/dashboard";
 import { useSession } from "./session";
 import {
   recurringApi,
@@ -208,10 +208,11 @@ export function useDeactivateRecurringPayment() {
   return useWrite((csrf, id: number) => recurringApi.deactivate(csrf, id), [keys.recurring]);
 }
 
-export function useDashboard(params?: { date_from?: string; date_to?: string }) {
+export function useDashboard(params?: DashboardParams, enabled = true) {
   return useQuery({
     queryKey: [...keys.dashboard, params],
     queryFn: () => dashboardApi.get(params),
+    enabled,
   });
 }
 

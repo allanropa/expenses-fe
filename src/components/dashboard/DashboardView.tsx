@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { ErrorMessage } from "../common";
-import { useCategories, useDashboard } from "../../queries";
+import { useAccounts, useCards, useCategories, useDashboard } from "../../queries";
+import type { Dashboard } from "../../types";
 import { money, toISODateString } from "../../utils/formatters";
 import { sumAmounts } from "../../utils/amounts";
 
@@ -91,6 +92,87 @@ function SpendingByCategory({
         );
       })}
     </div>
+  );
+}
+
+function SpendingWidget({
+  start,
+  end,
+  items,
+}: {
+  start: string;
+  end: string;
+  items: Dashboard["spending_by_category"];
+}) {
+  const [method, setMethod] = useState<"all" | "debit" | "credit">("all");
+  const [source, setSource] = useState("");
+  const accounts = useAccounts();
+  const archivedAccounts = useAccounts(true);
+  const cards = useCards();
+  const archivedCards = useCards(true);
+  const params = {
+    date_from: start,
+    date_to: end,
+    ...(method !== "all" ? { spending_method: method } : {}),
+    ...(source.startsWith("account:") ? { spending_account_id: source.slice(8) } : {}),
+    ...(source.startsWith("card:") ? { spending_card_id: source.slice(5) } : {}),
+  };
+  const filtered = useDashboard(params, method !== "all" || source !== "");
+  const filteredActive = method !== "all" || source !== "";
+  const error =
+    accounts.error ??
+    archivedAccounts.error ??
+    cards.error ??
+    archivedCards.error ??
+    (filteredActive ? filtered.error : null);
+  return (
+    <section className="card category-spending-card">
+      <h3>Gastos por categoría</h3>
+      <label>
+        Medio de pago
+        <select
+          value={method}
+          onChange={(event) => {
+            setMethod(event.target.value as typeof method);
+            setSource("");
+          }}
+        >
+          <option value="all">Todos</option>
+          <option value="debit">Débito</option>
+          <option value="credit">Tarjeta</option>
+        </select>
+      </label>
+      <label>
+        Cuenta o tarjeta
+        <select value={source} onChange={(event) => setSource(event.target.value)}>
+          <option value="">Todas</option>
+          {method !== "credit" &&
+            [...(accounts.data ?? []), ...(archivedAccounts.data ?? [])].map((account) => (
+              <option key={`account:${account.id}`} value={`account:${account.id}`}>
+                Cuenta: {account.name}
+                {account.is_archived ? " (archivada)" : ""}
+              </option>
+            ))}
+          {method !== "debit" &&
+            [...(cards.data ?? []), ...(archivedCards.data ?? [])].map((card) => (
+              <option key={`card:${card.id}`} value={`card:${card.id}`}>
+                Tarjeta: {card.name}
+                {card.is_archived ? " (archivada)" : ""}
+              </option>
+            ))}
+        </select>
+      </label>
+      <ErrorMessage error={error} />
+      {filteredActive && filtered.isPending ? (
+        <p className="muted">Cargando gastos...</p>
+      ) : (
+        !error && (
+          <SpendingByCategory
+            items={filteredActive ? (filtered.data?.spending_by_category ?? []) : items}
+          />
+        )
+      )}
+    </section>
   );
 }
 
@@ -326,10 +408,11 @@ export function DashboardView() {
               })}
             </CollapsibleCard>
           )}
-          <section className="card category-spending-card">
-            <h3>Gastos por categoría</h3>
-            <SpendingByCategory items={data.spending_by_category ?? []} />
-          </section>
+          <SpendingWidget
+            start={periodParams.start}
+            end={periodParams.end}
+            items={data.spending_by_category ?? []}
+          />
         </aside>
       </div>
     </>
