@@ -192,7 +192,7 @@ export function useRecurringPayments(activeOnly = true) {
 export function useCreateRecurringPayment() {
   return useWrite(
     (csrf, body: RecurringPaymentInput) => recurringApi.create(csrf, body),
-    [keys.recurring, keys.transactions, keys.accounts, keys.dashboard],
+    [keys.recurring, keys.transactions, keys.accounts, keys.cards, keys.dashboard],
   );
 }
 

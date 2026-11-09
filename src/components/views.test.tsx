@@ -13,6 +13,7 @@ import { DashboardView } from "./dashboard/DashboardView";
 import { LoansView } from "./loans/LoansView";
 import { SettingsView } from "./settings/SettingsView";
 import { TransactionsView } from "./transactions/TransactionsView";
+import { RecurringPaymentsPanel } from "./transactions/RecurringPaymentsPanel";
 
 const session: Session = {
   user: { id: 1, email: "ana@example.com", display_name: "Ana" },
@@ -143,6 +144,38 @@ describe("add buttons open their dialog", () => {
     fireEvent.click(await screen.findByRole("button", { name: label }));
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
+});
+
+it("allows selecting a card and its currency for recurring expenses", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      const data = url.endsWith("/api/cards")
+        ? [
+            {
+              id: 1,
+              name: "Visa",
+              currencies: [{ currency: "COP" }, { currency: "USD" }],
+            },
+          ]
+        : [];
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+  renderView(<RecurringPaymentsPanel />);
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar recurrente" }));
+  await waitFor(() =>
+    expect((screen.getByRole("option", { name: "Tarjeta" }) as HTMLOptionElement).disabled).toBe(
+      false,
+    ),
+  );
+  fireEvent.change(screen.getByLabelText("Medio de pago"), { target: { value: "card" } });
+  expect(screen.getByLabelText("Tarjeta")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+  expect((screen.getByLabelText("Moneda") as HTMLSelectElement).value).toBe("USD");
 });
 
 describe("loan closing", () => {

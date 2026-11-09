@@ -52,6 +52,7 @@ export type RecurringPayment = {
   transaction_type: "income" | "expense";
   source_account_id: number | null;
   destination_account_id: number | null;
+  card_id: number | null;
   amount: string;
   currency: string;
   category_id: number;

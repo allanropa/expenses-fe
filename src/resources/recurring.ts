@@ -6,6 +6,8 @@ export type RecurringPaymentInput = {
   transaction_type: "income" | "expense";
   source_account_id?: number | null;
   destination_account_id?: number | null;
+  card_id?: number | null;
+  currency?: string | null;
   amount: string;
   category_id: number;
   description?: string | null;
