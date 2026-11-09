@@ -648,47 +648,40 @@ export function TransactionsView() {
             className="stack"
             onSubmit={(event) => {
               event.preventDefault();
-              if (editTransaction.card_id === null && editCategoryIds.length === 0) return;
+              if (editCategoryIds.length === 0) return;
               updateTransaction.mutate(
                 {
                   id: editTransaction.id,
-                  body:
-                    editTransaction.card_id !== null
-                      ? { is_recurring: editRecurring }
-                      : {
-                          category_id: Number(editCategoryIds[0]),
-                          category_ids: editCategoryIds.map(Number),
-                          description: editDescription || null,
-                          is_recurring: editRecurring,
-                        },
+                  body: {
+                    category_id: Number(editCategoryIds[0]),
+                    category_ids: editCategoryIds.map(Number),
+                    description: editDescription || null,
+                    is_recurring: editRecurring,
+                  },
                 },
                 { onSuccess: () => editModal.closeModal() },
               );
             }}
           >
-            {editTransaction.card_id === null && (
-              <>
-                <label>
-                  Categoría
-                  <CategoryPicker
-                    categories={categoryList.filter((category) =>
-                      editTransaction.transaction_type === "income"
-                        ? category.kind !== "expense"
-                        : category.kind !== "income",
-                    )}
-                    selected={editCategoryIds}
-                    onChange={setEditCategoryIds}
-                  />
-                </label>
-                <label>
-                  Descripción
-                  <input
-                    value={editDescription}
-                    onChange={(event) => setEditDescription(event.target.value)}
-                  />
-                </label>
-              </>
-            )}
+            <label>
+              Categoría
+              <CategoryPicker
+                categories={categoryList.filter((category) =>
+                  editTransaction.transaction_type === "income"
+                    ? category.kind !== "expense"
+                    : category.kind !== "income",
+                )}
+                selected={editCategoryIds}
+                onChange={setEditCategoryIds}
+              />
+            </label>
+            <label>
+              Descripción
+              <input
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+              />
+            </label>
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -697,12 +690,7 @@ export function TransactionsView() {
               />
               Marcar como recurrente
             </label>
-            <button
-              disabled={
-                (editTransaction.card_id === null && editCategoryIds.length === 0) ||
-                updateTransaction.isPending
-              }
-            >
+            <button disabled={editCategoryIds.length === 0 || updateTransaction.isPending}>
               Guardar cambios
             </button>
           </form>

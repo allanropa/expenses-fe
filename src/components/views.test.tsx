@@ -538,6 +538,16 @@ describe("transaction source in details", () => {
     expect(dialog.textContent).not.toContain("Cuenta");
   });
 
+  it("allows editing a card transaction description and category", async () => {
+    mockTransactions([{ ...base, entry_type: "transaction", is_recurring: false }]);
+    renderView(<TransactionsView />);
+    await screen.findByText("Cena");
+    fireEvent.click(screen.getByLabelText("Acciones"));
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("Cena");
+    expect(screen.getByRole("button", { name: "Quitar Comida" })).toBeTruthy();
+  });
+
   it("shows the account ID when the account is not in the loaded list", async () => {
     mockTransactions([
       { ...base, account_id: 9, card_id: null, payment_method: "debit", description: "Taxi" },
