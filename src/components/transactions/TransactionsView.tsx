@@ -46,10 +46,14 @@ export function TransactionsView() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [recurringFilter, setRecurringFilter] = useState("");
+  const [dateFromFilter, setDateFromFilter] = useState("");
+  const [dateToFilter, setDateToFilter] = useState("");
   const [tab, setTab] = useState<"transactions" | "recurring">("transactions");
   const filters: TransactionListParams = {
     limit: pageSize,
     offset: page * pageSize,
+    ...(dateFromFilter ? { date_from: dateFromFilter } : {}),
+    ...(dateToFilter ? { date_to: dateToFilter } : {}),
     ...(categoryFilter ? { category_id: Number(categoryFilter) } : {}),
     ...(sourceFilter.startsWith("account:")
       ? { account_id: Number(sourceFilter.slice("account:".length)) }
@@ -243,6 +247,28 @@ export function TransactionsView() {
         <section className="card transaction-filters" aria-label="Filtros de movimientos">
           <h3>Filtrar movimientos</h3>
           <div className="filter-grid">
+            <label>
+              Desde
+              <input
+                type="date"
+                value={dateFromFilter}
+                onChange={(event) => {
+                  setDateFromFilter(event.target.value);
+                  setPage(0);
+                }}
+              />
+            </label>
+            <label>
+              Hasta
+              <input
+                type="date"
+                value={dateToFilter}
+                onChange={(event) => {
+                  setDateToFilter(event.target.value);
+                  setPage(0);
+                }}
+              />
+            </label>
             <label>
               Categoría
               <select

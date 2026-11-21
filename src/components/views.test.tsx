@@ -179,6 +179,34 @@ it("orders recent movements by movement date before creation time", async () => 
   expect(recent.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
+it("filters transactions by date range", async () => {
+  const calls: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify(responseFor(url)), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+  renderView(<TransactionsView />);
+  await screen.findByRole("heading", { level: 2, name: "Transacciones" });
+
+  fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-01-01" } });
+  fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-01-31" } });
+
+  await waitFor(() =>
+    expect(
+      calls.some(
+        (url) =>
+          url.includes("date_from=2026-01-01") && url.includes("date_to=2026-01-31"),
+      ),
+    ).toBe(true),
+  );
+});
+
 describe("add buttons open their dialog", () => {
   it.each([
     ["Agregar cuenta", <AccountsView />],

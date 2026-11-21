@@ -147,6 +147,8 @@ describe("resource modules send the same requests as the views did", () => {
 
   it("passes transaction filters to the list endpoint", async () => {
     await transactionsApi.list({
+      date_from: "2026-01-01",
+      date_to: "2026-01-31",
       category_id: 2,
       card_id: 3,
       transaction_type: "payment",
@@ -155,7 +157,7 @@ describe("resource modules send the same requests as the views did", () => {
     });
     const call = only();
     expect(call.url).toMatch(
-      /\/api\/transactions\?category_id=2&card_id=3&transaction_type=payment&limit=20&offset=0$/,
+      /\/api\/transactions\?date_from=2026-01-01&date_to=2026-01-31&category_id=2&card_id=3&transaction_type=payment&limit=20&offset=0$/,
     );
   });
 
